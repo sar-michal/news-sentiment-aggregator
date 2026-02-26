@@ -48,6 +48,8 @@ services:
   kibana:
     image: docker.elastic.co/kibana/kibana:9.3.0
     container_name: kibana
+    profiles:
+      - debug
     environment:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
     ports:
