@@ -1,0 +1,127 @@
+services:
+  # --- Database ---
+  db:
+    image: postgres:17-alpine
+    container_name: user_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "${DB_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # --- Elasticsearch ---
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.3.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false    # Disable login for local dev
+      - ES_JAVA_OPTS=${ES_JAVA_OPTS}    # Use the RAM limit from .env
+    ports:
+      - "${ES_PORT}:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    networks:
+      - backend_network
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # --- Kibana ---
+  kibana:
+    image: docker.elastic.co/kibana/kibana:9.3.0
+    container_name: kibana
+    profiles:
+      - debug
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "${KIBANA_PORT}:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - backend_network
+
+  # --- Redis ---
+  redis:
+    image: redis:8.6.1-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # --- Backend API (FastAPI) ---
+  backend:
+    build: ./backend
+    container_name: backend_api
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@${DOCKER_DB_HOST}:5432/${DB_NAME}
+      - ELASTICSEARCH_URL=http://${DOCKER_ES_HOST}:9200
+      - REDIS_URL=redis://${DOCKER_REDIS_HOST}:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend_network
+
+  # --- Worker (Celery) ---
+  worker:
+    build: ./backend
+    container_name: celery_worker
+    command: celery -A app.workers.celery_app worker --loglevel=info
+    volumes:
+      - ./backend:/app
+    environment:
+      - DATABASE_URL=postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@${DOCKER_DB_HOST}:5432/${DB_NAME}
+      - ELASTICSEARCH_URL=http://${DOCKER_ES_HOST}:9200
+      - REDIS_URL=redis://${DOCKER_REDIS_HOST}:6379/0
+      - C_FORCE_ROOT=true
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - backend_network
+
+volumes:
+  postgres_data:
+  es_data:
+  redis_data:
+
+networks:
+  backend_network:
