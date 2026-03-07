@@ -1,0 +1,37 @@
+import logging
+from urllib.parse import urlsplit
+from urllib.robotparser import RobotFileParser
+import trafilatura
+
+logger = logging.getLogger(__name__)
+
+class NewsScraper:
+    """Service to download and extract article text while respecting robots.txt."""
+
+    def __init__(self, user_agent: str = "NewsSentimentThesisBot"):
+        self.user_agent = user_agent
+        # Dictionary to cache robots.txt parsers
+        self._robot_parsers = {}
+
+    def _get_robot_parser(self, domain_url: str) -> RobotFileParser:
+        """Fetches and caches the robots.txt for a given domain."""
+        if domain_url not in self._robot_parsers:
+            robots_url = f"{domain_url}/robots.txt"
+            rp = RobotFileParser()
+            try:
+                rp.set_url(robots_url)
+                rp.read()
+                self._robot_parsers[domain_url] = rp
+                logger.debug(f"Fetched robots.txt for {domain_url}")
+            except Exception as e:
+                logger.warning(f"Could not fetch robots.txt for {domain_url}: {e}. Defaulting to open.")
+                self._robot_parsers[domain_url] = rp 
+        return self._robot_parsers[domain_url]
+
+    def can_fetch(self, url: str) -> bool:
+        """Checks if user agent is allowed to scrape the URL."""
+        parsed_url = urlsplit(url)
+        domain_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
+        
+        rp = self._get_robot_parser(domain_url)
+        return rp.can_fetch(self.user_agent, url)
