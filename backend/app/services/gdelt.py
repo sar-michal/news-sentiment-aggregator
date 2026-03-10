@@ -2,6 +2,7 @@ import logging
 import requests
 from typing import List
 from datetime import datetime
+from urllib.parse import urlsplit
 from pydantic import BaseModel, HttpUrl, field_validator
 
 from app.core.config import settings
@@ -37,6 +38,15 @@ class GdeltFetcher:
     def __init__(self):
         self.base_url = "https://api.gdeltproject.org/api/v2/doc/doc"
         self.whitelist = settings.GDELT_WHITELIST
+        self.url_blacklist = settings.URL_BLACKLIST
+
+    def _is_valid_url(self, url: str) -> bool:
+        """Returns True if the URL path does not contain blacklisted elements."""
+        # Split to only check path
+        path = urlsplit(str(url)).path.lower()
+        if any(bad_path in path for bad_path in self.url_blacklist):
+            return False
+        return True
 
     def fetch_latest_news(self, max_records: int = 50) -> List[ArticleData]:
         """Fetches the latest English news from whitelisted domains."""
@@ -76,7 +86,7 @@ class GdeltFetcher:
             # Post-fetch validation
             valid_articles = [
                 art for art in parsed_data.articles 
-                if art.domain in self.whitelist
+                if art.domain in self.whitelist and self._is_valid_url(art.url)
             ]
             
             logger.info(f"Successfully validated {len(valid_articles)} articles.")
