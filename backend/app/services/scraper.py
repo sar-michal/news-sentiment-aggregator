@@ -35,3 +35,34 @@ class NewsScraper:
         
         rp = self._get_robot_parser(domain_url)
         return rp.can_fetch(self.user_agent, url)
+    
+    def scrape_article(self, url: str) -> str | None:
+        """
+        Validates permission, downloads the HTML, and extracts the main text.
+        Returns the text if successful, or None if failed/forbidden.
+        """
+        if not self.can_fetch(url):
+            logger.warning(f"Scraping forbidden by robots.txt for URL: {url}")
+            return None
+
+        logger.info(f"Downloading HTML from: {url}")
+        
+        downloaded_html = trafilatura.fetch_url(url)
+        if downloaded_html is None:
+            logger.error(f"Failed to download HTML: {url}")
+            return None
+
+        text = trafilatura.extract(
+            downloaded_html,
+            include_comments=False,
+            include_tables=False,
+            favor_precision=True,
+            no_fallback=False,
+            deduplicate=True
+        )
+
+        if not text:
+            logger.error(f"Trafilatura could not extract useful text from: {url}")
+            return None
+
+        return text    
