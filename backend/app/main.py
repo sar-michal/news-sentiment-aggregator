@@ -1,7 +1,10 @@
 from fastapi import FastAPI
+from app.core.logging_config import setup_logging
 import json
 from app.services.gdelt import GdeltFetcher
 from app.services.scraper import NewsScraper
+
+setup_logging()
 
 app = FastAPI(
     title="News Sentiment Aggregator API",

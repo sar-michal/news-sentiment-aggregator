@@ -2,6 +2,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     REDIS_URL: str = "redis://redis:6379/0"
+    LOG_LEVEL: str = "INFO"
      
     # Whitelist for domain filtering in GDELT queries
     GDELT_WHITELIST: set[str] = {
