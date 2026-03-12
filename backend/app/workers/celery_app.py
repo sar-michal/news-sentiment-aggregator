@@ -1,12 +1,11 @@
 import os
 from celery import Celery
-
-redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+from app.core.config import settings
 
 celery = Celery(
     "news_worker",
-    broker=redis_url,
-    backend=redis_url,
+    broker=settings.REDIS_URL,
+    backend=settings.REDIS_URL,
     include=['app.workers.tasks']
 )
 

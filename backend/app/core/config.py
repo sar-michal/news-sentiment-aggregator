@@ -1,6 +1,8 @@
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
+    REDIS_URL: str = "redis://redis:6379/0"
+     
     # Whitelist for domain filtering in GDELT queries
     GDELT_WHITELIST: set[str] = {
         "reuters.com", "apnews.com", "bbc.co.uk", "bbc.com", 
