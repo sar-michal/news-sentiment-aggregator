@@ -1,6 +1,6 @@
-import os
 from celery import Celery
-from celery.signals import worker_process_init
+from celery.signals import setup_logging as celery_setup_logging
+
 from app.core.config import settings
 from app.core.logging_config import setup_logging
 
@@ -8,7 +8,7 @@ celery = Celery(
     "news_worker",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
-    include=['app.workers.tasks']
+    include=["app.workers.tasks"],
 )
 
 celery.conf.update(
@@ -17,9 +17,12 @@ celery.conf.update(
     accept_content=["json"],
     timezone="UTC",
     enable_utc=True,
+    worker_hijack_root_logger=False,
+    worker_redirect_stdouts=False,
 )
 
-@worker_process_init.connect
-def init_worker(**kwargs):
-    """Configure logging when each Celery worker process starts."""
+
+@celery_setup_logging.connect
+def config_loggers(*args, **kwargs):
+    """Override logging for Celery workers."""
     setup_logging()
