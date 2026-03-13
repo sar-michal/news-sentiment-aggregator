@@ -1,9 +1,11 @@
 import logging
 from urllib.parse import urlsplit
 from urllib.robotparser import RobotFileParser
+
 import trafilatura
 
 logger = logging.getLogger(__name__)
+
 
 class NewsScraper:
     """Service to download and extract article text while respecting robots.txt."""
@@ -24,18 +26,20 @@ class NewsScraper:
                 self._robot_parsers[domain_url] = rp
                 logger.debug(f"Fetched robots.txt for {domain_url}")
             except Exception as e:
-                logger.warning(f"Could not fetch robots.txt for {domain_url}: {e}. Defaulting to open.")
-                self._robot_parsers[domain_url] = rp 
+                logger.warning(
+                    f"Could not fetch robots.txt for {domain_url}: {e}. Defaulting to open."
+                )
+                self._robot_parsers[domain_url] = rp
         return self._robot_parsers[domain_url]
 
     def can_fetch(self, url: str) -> bool:
         """Checks if user agent is allowed to scrape the URL."""
         parsed_url = urlsplit(url)
         domain_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
-        
+
         rp = self._get_robot_parser(domain_url)
         return rp.can_fetch(self.user_agent, url)
-    
+
     def scrape_article(self, url: str) -> str | None:
         """
         Validates permission, downloads the HTML, and extracts the main text.
@@ -46,11 +50,11 @@ class NewsScraper:
             return None
 
         logger.info(f"Downloading HTML from: {url}")
-        
+
         downloaded_html = trafilatura.fetch_url(url)
         if downloaded_html is None:
             logger.error(f"Failed to download HTML: {url}")
-            return None
+            raise ConnectionError(f"Trafilatura failed to download HTML from: {url}")
 
         text = trafilatura.extract(
             downloaded_html,
@@ -58,11 +62,11 @@ class NewsScraper:
             include_tables=False,
             favor_precision=True,
             no_fallback=False,
-            deduplicate=True
+            deduplicate=True,
         )
 
         if not text:
             logger.error(f"Trafilatura could not extract useful text from: {url}")
             return None
 
-        return text    
+        return text
