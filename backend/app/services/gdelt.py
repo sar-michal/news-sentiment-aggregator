@@ -106,4 +106,4 @@ class GdeltFetcher:
 
         except requests.exceptions.RequestException as e:
             logger.error(f"Error connecting to GDELT: {e}")
-            raise
+            raise ConnectionError(f"GDELT API connection failed: {e}")

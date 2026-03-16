@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 @celery.task(
     bind=True,
     max_retries=3,
-    autoretry_for=(Exception,),
+    autoretry_for=(ConnectionError,),
     retry_backoff=60,
     retry_jitter=True,
 )
@@ -32,7 +32,9 @@ def trigger_gdelt_fetch(self):
     return f"Queued {len(articles)} articles for processing."
 
 
-@celery.task(bind=True, max_retries=2, autoretry_for=(Exception,), retry_backoff=30)
+@celery.task(
+    bind=True, max_retries=2, autoretry_for=(ConnectionError,), retry_backoff=30
+)
 def process_article(self, article_data: dict):
     """Consumer: Downloads HTML and extracts article text."""
     url = article_data.get("url")
