@@ -1,41 +1,14 @@
 import logging
-from datetime import datetime
-from typing import List
 from urllib.parse import urlsplit
 
 import requests
-from pydantic import BaseModel, HttpUrl, field_validator
 
 from app.core.config import settings
+from app.schemas.article import ArticleData, GdeltResponse
 
 __all__ = ["GdeltFetcher", "ArticleData"]
 
 logger = logging.getLogger(__name__)
-
-
-# --- Data Models ---
-class ArticleData(BaseModel):
-    """Represents a single article returned by the GDELT API."""
-
-    url: HttpUrl
-    title: str
-    seendate: datetime
-    domain: str
-    sourcecountry: str
-
-    @field_validator("seendate", mode="before")
-    @classmethod
-    def parse_gdelt_date(cls, value):
-        """Converts GDELT's custom string into a Python datetime object."""
-        if isinstance(value, str):
-            return datetime.strptime(value, "%Y%m%dT%H%M%SZ")
-        return value
-
-
-class GdeltResponse(BaseModel):
-    """Wrapper for the GDELT API response containing a list of articles."""
-
-    articles: List[ArticleData] = []
 
 
 # --- Service Class ---
@@ -55,7 +28,7 @@ class GdeltFetcher:
             return False
         return True
 
-    def fetch_latest_news(self, max_records: int = 50) -> List[ArticleData]:
+    def fetch_latest_news(self, max_records: int = 50) -> list[ArticleData]:
         """Fetches the latest English news from whitelisted domains."""
         if not self.whitelist:
             logger.warning("GDELT whitelist is empty. Skipping fetch.")
