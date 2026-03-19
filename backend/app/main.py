@@ -2,6 +2,7 @@ import json
 
 from fastapi import FastAPI
 
+from app.core.config import Environment, settings
 from app.core.logging_config import setup_logging
 from app.services.gdelt import GdeltFetcher
 from app.services.scraper import NewsScraper
@@ -9,7 +10,15 @@ from app.workers.tasks import trigger_gdelt_fetch
 
 setup_logging()
 
-app = FastAPI(title="News Sentiment Aggregator API", version="0.1.0")
+app = FastAPI(
+    title="News Sentiment Aggregator API",
+    version="0.1.0",
+    docs_url="/docs" if settings.ENVIRONMENT != Environment.PRODUCTION else None,
+    redoc_url="/redoc" if settings.ENVIRONMENT != Environment.PRODUCTION else None,
+    openapi_url="/openapi.json"
+    if settings.ENVIRONMENT != Environment.PRODUCTION
+    else None,
+)
 
 
 @app.get("/")
