@@ -2,6 +2,7 @@ import logging
 from urllib.parse import urlsplit
 
 import requests
+from pydantic import ValidationError
 
 from app.core.config import settings
 from app.schemas.article import ArticleData, GdeltResponse
@@ -64,8 +65,12 @@ class GdeltFetcher:
                 logger.info("No articles found.")
                 return []
 
-            # Validate using Pydantic
-            parsed_data = GdeltResponse(**data)
+            try:
+                # Validate using Pydantic
+                parsed_data = GdeltResponse(**data)
+            except ValidationError as e:
+                logger.error(f"Data validation failed due to schema change: {e}")
+                return []
 
             # Post-fetch validation
             valid_articles = [
