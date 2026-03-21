@@ -7,8 +7,6 @@ from pydantic import ValidationError
 from app.core.config import settings
 from app.schemas.article import ArticleData, GdeltResponse
 
-__all__ = ["GdeltFetcher", "ArticleData"]
-
 logger = logging.getLogger(__name__)
 
 
