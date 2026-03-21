@@ -11,6 +11,8 @@ class Environment(StrEnum):
 
 class Settings(BaseSettings):
     REDIS_URL: str = "redis://redis:6379/0"
+    ELASTICSEARCH_URL: str = "http://localhost:9200"
+    ELASTIC_INDEX_NAME: str = "news_articles"
     LOG_LEVEL: str = "INFO"
     ENVIRONMENT: Environment = Environment.DEVELOPMENT
 
