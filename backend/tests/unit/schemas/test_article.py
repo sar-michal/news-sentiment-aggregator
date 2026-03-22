@@ -11,7 +11,7 @@ def test_valid_data_initializes_fields_correctly():
         "title": "A Very Important Event",
         "seendate": "20231024T153000Z",
         "domain": "example.com",
-        "sourcecountry": "US",
+        "sourcecountry": "United States",
     }
 
     article = ArticleData(**mock_data)
@@ -27,7 +27,7 @@ def test_invalid_url_raises_validation_error():
         "title": "A Very Important Event",
         "seendate": "20231024T153000Z",
         "domain": "example.com",
-        "sourcecountry": "US",
+        "sourcecountry": "United States",
     }
 
     with pytest.raises(ValidationError, match="(?i)url"):

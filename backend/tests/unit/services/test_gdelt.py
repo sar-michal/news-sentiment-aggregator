@@ -32,21 +32,21 @@ def test_fetch_latest_news_filters_invalid_and_blacklisted_urls(
                 "title": "Valid Article",
                 "seendate": "20231024T153000Z",
                 "domain": "example.com",
-                "sourcecountry": "US",
+                "sourcecountry": "United States",
             },
             {
                 "url": "https://test-domain.com/sports/1",
                 "title": "Sports Match",
                 "seendate": "20231024T154000Z",
                 "domain": "test-domain.com",
-                "sourcecountry": "UK",
+                "sourcecountry": "United Kingdom",
             },
             {
                 "url": "https://random-site.com/news",
                 "title": "Not in Whitelist",
                 "seendate": "20231024T155000Z",
                 "domain": "random-site.com",
-                "sourcecountry": "PL",
+                "sourcecountry": "Poland",
             },
         ]
     }
@@ -120,7 +120,7 @@ def test_fetch_latest_news_returns_empty_list_on_pydantic_validation_error(
                 "title": "Missing URL Article",
                 "seendate": "20231024T153000Z",
                 "domain": "example.com",
-                "sourcecountry": "US",
+                "sourcecountry": "United States",
             }
         ]
     }
