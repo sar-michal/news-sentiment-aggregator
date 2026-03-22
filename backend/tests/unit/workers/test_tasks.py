@@ -1,13 +1,24 @@
 from unittest.mock import MagicMock
 
+import app.workers.tasks as tasks_module
 import pytest
-from app.services.gdelt import GdeltFetcher
-from app.services.scraper import NewsScraper
 from app.workers.tasks import process_article, trigger_gdelt_fetch
 
 
+@pytest.fixture(autouse=True)
+def setup_task_globals(monkeypatch):
+    """
+    Because global worker services are initialized asynchronously via
+    @worker_process_init in Celery, they are `None` during pytest runs.
+    This fixture automatically initializes them as MagicMocks for every test.
+    """
+    monkeypatch.setattr(tasks_module, "gdelt_fetcher", MagicMock())
+    monkeypatch.setattr(tasks_module, "scraper", MagicMock())
+    monkeypatch.setattr(tasks_module, "es_client", MagicMock())
+
+
 def test_trigger_gdelt_fetch_returns_empty_message_when_no_articles(monkeypatch):
-    monkeypatch.setattr(GdeltFetcher, "fetch_latest_news", lambda *args, **kwargs: [])
+    tasks_module.gdelt_fetcher.fetch_latest_news.return_value = []
 
     mock_delay = MagicMock()
     monkeypatch.setattr(process_article, "delay", mock_delay)
@@ -30,11 +41,10 @@ def test_trigger_gdelt_fetch_queues_articles_and_returns_summary(monkeypatch):
         "title": "B",
     }
 
-    monkeypatch.setattr(
-        GdeltFetcher,
-        "fetch_latest_news",
-        lambda *args, **kwargs: [mock_article_1, mock_article_2],
-    )
+    tasks_module.gdelt_fetcher.fetch_latest_news.return_value = [
+        mock_article_1,
+        mock_article_2,
+    ]
 
     mock_delay = MagicMock()
     monkeypatch.setattr(process_article, "delay", mock_delay)
@@ -47,50 +57,83 @@ def test_trigger_gdelt_fetch_queues_articles_and_returns_summary(monkeypatch):
     mock_delay.assert_any_call({"url": "https://example.com/2", "title": "B"})
 
 
-def test_trigger_gdelt_fetch_propagates_exceptions_for_celery_retry(monkeypatch):
-    def mock_fetch_latest_news(*args, **kwargs):
-        raise ConnectionError("Simulated GDELT failure")
-
-    monkeypatch.setattr(GdeltFetcher, "fetch_latest_news", mock_fetch_latest_news)
+def test_trigger_gdelt_fetch_propagates_exceptions_for_celery_retry():
+    tasks_module.gdelt_fetcher.fetch_latest_news.side_effect = ConnectionError(
+        "Simulated GDELT failure"
+    )
 
     with pytest.raises(ConnectionError, match="Simulated GDELT failure"):
         trigger_gdelt_fetch()
 
 
-def test_process_article_handles_malformed_dictionary_gracefully(monkeypatch):
-    monkeypatch.setattr(NewsScraper, "scrape_article", lambda *args, **kwargs: None)
-
+def test_process_article_handles_malformed_dictionary_gracefully():
     actual = process_article({})
 
-    assert actual == "Failed: No text"
+    assert actual == "Failed: Invalid data schema"
 
 
-def test_process_article_returns_failed_when_no_text_extracted(monkeypatch):
-    monkeypatch.setattr(NewsScraper, "scrape_article", lambda *args, **kwargs: None)
-    article_data = {"url": "https://example.com/bad-article"}
+def test_process_article_returns_failed_when_no_text_extracted():
+    tasks_module.scraper.scrape_article.return_value = None
+
+    article_data = {
+        "url": "https://example.com/bad-article",
+        "title": "Title",
+        "seendate": "20231024T153000Z",
+        "domain": "example.com",
+        "sourcecountry": "United States",
+    }
 
     actual = process_article(article_data)
 
     assert actual == "Failed: No text"
 
 
-def test_process_article_returns_success_when_text_extracted(monkeypatch):
-    monkeypatch.setattr(
-        NewsScraper, "scrape_article", lambda *args, **kwargs: "Extracted article text"
-    )
-    article_data = {"url": "https://example.com/good-article"}
+def test_process_article_returns_failed_es_error_on_indexing_failure():
+    tasks_module.scraper.scrape_article.return_value = "Extracted article text"
+    tasks_module.es_client.index_article.return_value = False
+
+    article_data = {
+        "url": "https://example.com/es-fail",
+        "title": "Title",
+        "seendate": "20231024T153000Z",
+        "domain": "example.com",
+        "sourcecountry": "United States",
+    }
+
+    actual = process_article(article_data)
+
+    assert actual == "Failed: Elasticsearch indexing error"
+
+
+def test_process_article_returns_success_when_extracted_and_indexed():
+    tasks_module.scraper.scrape_article.return_value = "Extracted article text"
+    tasks_module.es_client.index_article.return_value = True
+
+    article_data = {
+        "url": "https://example.com/good-article",
+        "title": "Title",
+        "seendate": "20231024T153000Z",
+        "domain": "example.com",
+        "sourcecountry": "United States",
+    }
 
     actual = process_article(article_data)
 
     assert actual == "Success"
 
 
-def test_process_article_propagates_exceptions_for_celery_retry(monkeypatch):
-    def mock_scrape_article(*args, **kwargs):
-        raise ConnectionError("Trafilatura failed")
+def test_process_article_propagates_exceptions_for_celery_retry():
+    tasks_module.scraper.scrape_article.side_effect = ConnectionError(
+        "Trafilatura failed"
+    )
 
-    monkeypatch.setattr(NewsScraper, "scrape_article", mock_scrape_article)
-    article_data = {"url": "https://example.com/timeout"}
+    article_data = {
+        "url": "https://example.com/timeout",
+        "title": "Title",
+        "seendate": "20231024T153000Z",
+        "domain": "example.com",
+        "sourcecountry": "United States",
+    }
 
     with pytest.raises(ConnectionError, match="Trafilatura failed"):
         process_article(article_data)
