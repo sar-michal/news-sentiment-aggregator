@@ -85,7 +85,7 @@ class ElasticClient:
             logger.error(
                 f"Elasticsearch connection error while indexing {url_str}: {e}"
             )
-            raise
+            raise ConnectionError(f"Elasticsearch connection failed: {e}") from e
         except Exception as e:
             logger.error(f"Unexpected error indexing {url_str}: {e}")
             return False
