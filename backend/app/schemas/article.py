@@ -15,9 +15,15 @@ class ArticleData(BaseModel):
     @field_validator("seendate", mode="before")
     @classmethod
     def parse_gdelt_date(cls, value):
-        """Converts GDELT's custom string into a Python datetime object."""
+        """
+        Converts GDELT's custom string into a Python datetime object.
+        Falls back to default Pydantic parsing for standard formats.
+        """
         if isinstance(value, str):
-            return datetime.strptime(value, "%Y%m%dT%H%M%SZ")
+            try:
+                return datetime.strptime(value, "%Y%m%dT%H%M%SZ")
+            except ValueError:
+                pass
         return value
 
 
