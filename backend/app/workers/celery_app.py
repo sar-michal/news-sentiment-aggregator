@@ -1,13 +1,14 @@
-import os
 from celery import Celery
+from celery.signals import setup_logging as celery_setup_logging
 
-redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+from app.core.config import settings
+from app.core.logging_config import setup_logging
 
 celery = Celery(
     "news_worker",
-    broker=redis_url,
-    backend=redis_url,
-    include=['app.workers.tasks']
+    broker=settings.REDIS_URL,
+    backend=settings.REDIS_URL,
+    include=["app.workers.tasks"],
 )
 
 celery.conf.update(
@@ -16,4 +17,12 @@ celery.conf.update(
     accept_content=["json"],
     timezone="UTC",
     enable_utc=True,
+    worker_hijack_root_logger=False,
+    worker_redirect_stdouts=False,
 )
+
+
+@celery_setup_logging.connect
+def config_loggers(*args, **kwargs):
+    """Override logging for Celery workers."""
+    setup_logging()
