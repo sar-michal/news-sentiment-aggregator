@@ -1,3 +1,6 @@
+import urllib.request
+from unittest.mock import MagicMock
+from urllib.error import URLError
 from urllib.robotparser import RobotFileParser
 
 import pytest
@@ -63,7 +66,13 @@ def test_can_fetch_evaluates_rules_and_caches_parser(
     domain = "https://example.com"
     target_url = f"{domain}/some/article"
 
-    monkeypatch.setattr(RobotFileParser, "read", lambda self: None)
+    mock_response = MagicMock()
+    mock_response.read.return_value = b"User-agent: *\nAllow: /"
+
+    mock_urlopen = MagicMock()
+    mock_urlopen.return_value.__enter__.return_value = mock_response
+    monkeypatch.setattr(urllib.request, "urlopen", mock_urlopen)
+
     monkeypatch.setattr(
         RobotFileParser, "can_fetch", lambda self, agent, url: is_allowed_by_parser
     )
@@ -75,19 +84,20 @@ def test_can_fetch_evaluates_rules_and_caches_parser(
     assert actual is expected
     assert len(scraper._robot_parsers) == 1
     assert domain in scraper._robot_parsers
+    mock_urlopen.assert_called_once()
 
     scraper.can_fetch(f"{domain}/another/article")
     assert len(scraper._robot_parsers) == 1
+    mock_urlopen.assert_called_once()
 
 
 def test_get_robot_parser_handles_exceptions_gracefully(monkeypatch):
     scraper = NewsScraper()
     domain_url = "https://example.com"
 
-    def mock_read(self):
-        raise ValueError("Simulated network failure")
-
-    monkeypatch.setattr(RobotFileParser, "read", mock_read)
+    mock_urlopen = MagicMock()
+    mock_urlopen.side_effect = URLError("Simulated network failure")
+    monkeypatch.setattr(urllib.request, "urlopen", mock_urlopen)
 
     actual_parser = scraper._get_robot_parser(domain_url)
 

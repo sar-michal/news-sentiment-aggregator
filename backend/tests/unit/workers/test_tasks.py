@@ -72,7 +72,25 @@ def test_process_article_handles_malformed_dictionary_gracefully():
     assert actual == "Failed: Invalid data schema"
 
 
+def test_process_article_skips_existing_articles():
+    tasks_module.es_client.article_exists.return_value = True
+
+    article_data = {
+        "url": "https://example.com/existing-article",
+        "title": "Title",
+        "seendate": "20231024T153000Z",
+        "domain": "example.com",
+        "sourcecountry": "United States",
+    }
+
+    actual = process_article(article_data)
+
+    assert actual == "Skipped: Already exists"
+    tasks_module.scraper.scrape_article.assert_not_called()
+
+
 def test_process_article_returns_failed_when_no_text_extracted():
+    tasks_module.es_client.article_exists.return_value = False
     tasks_module.scraper.scrape_article.return_value = None
 
     article_data = {
@@ -89,6 +107,7 @@ def test_process_article_returns_failed_when_no_text_extracted():
 
 
 def test_process_article_returns_failed_es_error_on_indexing_failure():
+    tasks_module.es_client.article_exists.return_value = False
     tasks_module.scraper.scrape_article.return_value = "Extracted article text"
     tasks_module.es_client.index_article.return_value = False
 
@@ -106,6 +125,7 @@ def test_process_article_returns_failed_es_error_on_indexing_failure():
 
 
 def test_process_article_returns_success_when_extracted_and_indexed():
+    tasks_module.es_client.article_exists.return_value = False
     tasks_module.scraper.scrape_article.return_value = "Extracted article text"
     tasks_module.es_client.index_article.return_value = True
 
@@ -123,6 +143,7 @@ def test_process_article_returns_success_when_extracted_and_indexed():
 
 
 def test_process_article_propagates_exceptions_for_celery_retry():
+    tasks_module.es_client.article_exists.return_value = False
     tasks_module.scraper.scrape_article.side_effect = ConnectionError(
         "Trafilatura failed"
     )

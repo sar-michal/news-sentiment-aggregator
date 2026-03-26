@@ -115,3 +115,42 @@ def test_index_article_suppresses_generic_exception(
     assert result is False
     assert f"Unexpected error indexing {sample_article.url}" in caplog.text
     assert "Unknown Elasticsearch cluster error" in caplog.text
+
+
+def test_article_exists_returns_true_when_found(es_client, mock_es):
+    mock_es.exists.return_value = True
+    url = "https://example.com/check-me"
+    expected_doc_id = hashlib.sha256(url.encode("utf-8")).hexdigest()
+
+    result = es_client.article_exists(url)
+
+    assert result is True
+    mock_es.exists.assert_called_once_with(
+        index=es_client.index_name, id=expected_doc_id
+    )
+
+
+def test_article_exists_returns_false_when_not_found(es_client, mock_es):
+    mock_es.exists.return_value = False
+    url = "https://example.com/check-me-not"
+    expected_doc_id = hashlib.sha256(url.encode("utf-8")).hexdigest()
+
+    result = es_client.article_exists(url)
+
+    assert result is False
+    mock_es.exists.assert_called_once_with(
+        index=es_client.index_name, id=expected_doc_id
+    )
+
+
+def test_article_exists_returns_false_and_handles_exceptions(
+    es_client, mock_es, caplog
+):
+    mock_es.exists.side_effect = Exception("ES cluster offline")
+    url = "https://example.com/error-test"
+
+    with caplog.at_level(logging.WARNING):
+        result = es_client.article_exists(url)
+
+    assert result is False
+    assert f"Failed to check existence for {url}: ES cluster offline" in caplog.text
