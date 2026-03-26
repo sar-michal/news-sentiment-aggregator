@@ -27,8 +27,21 @@ class GdeltFetcher:
             return False
         return True
 
-    def fetch_latest_news(self, max_records: int = 50) -> list[ArticleData]:
-        """Fetches the latest English news from whitelisted domains."""
+    def fetch_latest_news(
+        self, max_records: int = 50, timespan: str | None = None
+    ) -> list[ArticleData]:
+        """Fetches the latest English news from whitelisted domains.
+
+        Args:
+            max_records: The maximum number of articles to return.
+            timespan: Filters articles by a rolling time window. Minimum of 15min.
+                Format rules:
+                - Minutes: a number followed by "min" (e.g., "15min")
+                - Hours: a number followed by "h" (e.g., "24h")
+                - Days: a number followed by "d" (e.g., "7d")
+                - Weeks: a number followed by "w" (e.g., "1w")
+                - Months: a number followed by "m" (e.g., "3m")
+        """
         if not self.whitelist:
             logger.warning("GDELT whitelist is empty. Skipping fetch.")
             return []
@@ -42,6 +55,9 @@ class GdeltFetcher:
             "maxrecords": max_records,
             "sort": "datedesc",
         }
+
+        if timespan:
+            params["timespan"] = timespan
 
         try:
             logger.info(f"Fetching data from GDELT (Max: {max_records})...")
