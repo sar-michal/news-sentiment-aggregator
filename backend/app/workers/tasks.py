@@ -65,8 +65,12 @@ def process_article(self, article_dict: dict):
         return "Failed: Invalid data schema"
 
     url = str(article_data.url)
-    logger.info(f"Processing article: {url}")
 
+    if es_client.article_exists(url):
+        logger.info(f"Skipping {url} - already exists in database.")
+        return "Skipped: Already exists"
+
+    logger.info(f"Processing article: {url}")
     text = scraper.scrape_article(url)
 
     if not text:

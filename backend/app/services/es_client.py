@@ -89,3 +89,12 @@ class ElasticClient:
         except Exception as e:
             logger.error(f"Unexpected error indexing {url_str}: {e}")
             return False
+
+    def article_exists(self, url: str) -> bool:
+        """Checks if an article is already indexed based on its URL hash."""
+        doc_id = hashlib.sha256(url.encode("utf-8")).hexdigest()
+        try:
+            return self.client.exists(index=self.index_name, id=doc_id)
+        except Exception as e:
+            logger.warning(f"Failed to check existence for {url}: {e}")
+            return False
