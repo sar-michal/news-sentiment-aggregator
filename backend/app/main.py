@@ -4,6 +4,7 @@ from fastapi import FastAPI
 
 from app.core.config import Environment, settings
 from app.core.logging_config import setup_logging
+from app.services.es_search import AsyncSearchClient
 from app.services.gdelt import GdeltFetcher
 from app.services.scraper import NewsScraper
 from app.workers.tasks import trigger_gdelt_fetch
@@ -58,3 +59,17 @@ def test_celery_integration():
     task = trigger_gdelt_fetch.delay()
 
     return {"message": "Task sent to Celery successfully!", "task_id": task.id}
+
+
+@app.get("/test-search")
+async def test_search(q: str | None = None, domain: str | None = None, page: int = 1):
+    client = AsyncSearchClient()
+    try:
+        results = await client.search_articles(
+            query_str=q, domain=domain, page=page, size=3
+        )
+        if not results:
+            return {"message": "No results or connection failed"}
+        return results
+    finally:
+        await client.close()
