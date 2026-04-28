@@ -1,0 +1,52 @@
+from datetime import datetime
+
+from pydantic import BaseModel, HttpUrl
+
+
+class EntityResponse(BaseModel):
+    """Represents a single extracted entity and its sentiment."""
+
+    entity: str
+    type: str
+    sentiment: float
+
+
+class TimelinePoint(BaseModel):
+    """Represents a point on the sentiment timeline."""
+
+    sequence_index: int
+    sentiment_score: float
+
+
+class KeySnippets(BaseModel):
+    """The isolated snippets representing extremities in sentiment."""
+
+    most_positive: str | None = None
+    most_negative: str | None = None
+
+
+class ArticleResponse(BaseModel):
+    """Represents the article data returned to API."""
+
+    id: str
+    url: HttpUrl
+    title: str
+    seendate: datetime
+    domain: str
+    sourcecountry: str
+
+    sentiment_score: float | None = None
+    entities: list[EntityResponse] = []
+
+    timeline: list[TimelinePoint] = []
+    snippets: KeySnippets | None = None
+
+
+class ArticleListResponse(BaseModel):
+    """Paginated response wrapper for multiple articles."""
+
+    total_results: int
+    page: int
+    size: int
+    total_pages: int
+    articles: list[ArticleResponse]

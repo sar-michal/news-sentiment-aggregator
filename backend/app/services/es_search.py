@@ -5,7 +5,7 @@ from elasticsearch import AsyncElasticsearch
 from elasticsearch.exceptions import ConnectionError as ESConnectionError
 
 from app.core.config import settings
-from app.schemas.article import (
+from app.schemas.api import (
     ArticleListResponse,
     ArticleResponse,
     KeySnippets,
