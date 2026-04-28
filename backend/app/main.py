@@ -1,8 +1,9 @@
 import json
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.core.config import Environment, settings
+from app.api.v1.router import api_router
 from app.core.logging_config import setup_logging
 from app.services.es_search import AsyncSearchClient
 from app.services.gdelt import GdeltFetcher
@@ -11,15 +12,17 @@ from app.workers.tasks import trigger_gdelt_fetch
 
 setup_logging()
 
-app = FastAPI(
-    title="News Sentiment Aggregator API",
-    version="0.1.0",
-    docs_url="/docs" if settings.ENVIRONMENT != Environment.PRODUCTION else None,
-    redoc_url="/redoc" if settings.ENVIRONMENT != Environment.PRODUCTION else None,
-    openapi_url="/openapi.json"
-    if settings.ENVIRONMENT != Environment.PRODUCTION
-    else None,
-)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.search_client = AsyncSearchClient()
+    yield
+    await app.state.search_client.close()
+
+
+app = FastAPI(title="News Sentiment API", lifespan=lifespan)
+
+app.include_router(api_router, prefix="/api/v1")
 
 
 @app.get("/")
@@ -59,17 +62,3 @@ def test_celery_integration():
     task = trigger_gdelt_fetch.delay()
 
     return {"message": "Task sent to Celery successfully!", "task_id": task.id}
-
-
-@app.get("/test-search")
-async def test_search(q: str | None = None, domain: str | None = None, page: int = 1):
-    client = AsyncSearchClient()
-    try:
-        results = await client.search_articles(
-            query_str=q, domain=domain, page=page, size=3
-        )
-        if not results:
-            return {"message": "No results or connection failed"}
-        return results
-    finally:
-        await client.close()
