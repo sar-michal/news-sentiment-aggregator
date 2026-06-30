@@ -12,11 +12,12 @@ async def search_articles(
     query_str: str | None = Query(None, description="Search query string"),
     domain: str | None = Query(None, description="Filter by specific domain"),
     page: int = Query(1, ge=1, description="Page number for pagination"),
+    size: int = Query(20, ge=1, le=100, description="Items per page"),
     client: AsyncSearchClient = Depends(get_search_client),
 ):
     try:
         return await client.search_articles(
-            query_str=query_str, domain=domain, page=page
+            query_str=query_str, domain=domain, page=page, size=size
         )
     except ConnectionError:
         raise HTTPException(
