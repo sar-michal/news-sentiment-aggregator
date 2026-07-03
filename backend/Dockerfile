@@ -19,6 +19,6 @@ RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/wh
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Download the English model for spaCy
-RUN python -m spacy download en_core_web_lg
+RUN python -m spacy download en_core_web_md
 
 COPY . .
