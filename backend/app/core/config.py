@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     ENVIRONMENT: Environment = Environment.DEVELOPMENT
 
+    # Origins allowed to make requests to the API
+    BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173"]
+
     # Whitelist for domain filtering in GDELT queries
     GDELT_WHITELIST: set[str] = {
         "reuters.com",
