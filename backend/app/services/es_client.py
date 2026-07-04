@@ -63,7 +63,7 @@ class ElasticClient:
         url_str = str(article.url)
 
         # Hash to prevent character limit issues in the _id field
-        doc_id = hashlib.sha256(url_str.encode("utf-8")).hexdigest()
+        doc_id = self.get_doc_id(url_str)
 
         document = {
             "url": url_str,
@@ -92,9 +92,37 @@ class ElasticClient:
 
     def article_exists(self, url: str) -> bool:
         """Checks if an article is already indexed based on its URL hash."""
-        doc_id = hashlib.sha256(url.encode("utf-8")).hexdigest()
+        doc_id = self.get_doc_id(url)
         try:
             return self.client.exists(index=self.index_name, id=doc_id)
         except Exception as e:
             logger.warning(f"Failed to check existence for {url}: {e}")
+            return False
+
+    def get_doc_id(self, url: str) -> str:
+        """Generates the Elasticsearch document ID (SHA-256 hash) from a URL"""
+        return hashlib.sha256(url.encode("utf-8")).hexdigest()
+
+    def update_article_nlp(self, doc_id: str, nlp_payload: dict) -> bool:
+        """
+        Updates an existing article document with the computed NLP data (sentences, entities, sentiment).
+        """
+        try:
+            response = self.client.update(
+                index=self.index_name,
+                id=doc_id,
+                doc={
+                    "sentences": nlp_payload.get("sentences", []),
+                    "entities": nlp_payload.get("entities", []),
+                    "sentiment_score": nlp_payload.get("sentiment_score"),
+                },
+            )
+            # "updated" means it changed, "noop" means the data was already exactly the same
+            if response["result"] in ["updated", "noop"]:
+                logger.info(f"Successfully updated document {doc_id} with NLP payload.")
+                return True
+            return False
+
+        except Exception as e:
+            logger.error(f"Failed to update document {doc_id} with NLP payload: {e}")
             return False
