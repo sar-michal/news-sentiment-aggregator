@@ -2,7 +2,11 @@ import logging
 from typing import Any, Dict, List
 
 import spacy
+import transformers
 from transformers import pipeline
+
+transformers.utils.logging.set_verbosity_error()
+transformers.utils.logging.disable_progress_bar()
 
 logger = logging.getLogger(__name__)
 
