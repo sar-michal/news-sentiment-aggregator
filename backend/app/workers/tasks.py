@@ -1,4 +1,5 @@
 import logging
+from builtins import TimeoutError
 
 from celery.signals import worker_process_init
 from pydantic import ValidationError
@@ -38,7 +39,7 @@ def init_worker_services(**kwargs):
 
 @celery.task(
     bind=True,
-    max_retries=3,
+    max_retries=2,
     autoretry_for=(ConnectionError,),
     retry_backoff=60,
     retry_jitter=True,
@@ -60,7 +61,10 @@ def trigger_gdelt_fetch(self):
 
 
 @celery.task(
-    bind=True, max_retries=2, autoretry_for=(ConnectionError,), retry_backoff=30
+    bind=True,
+    max_retries=2,
+    autoretry_for=(ConnectionError, TimeoutError),
+    retry_backoff=30,
 )
 def process_article(self, article_dict: dict):
     """
