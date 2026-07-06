@@ -67,9 +67,10 @@ def test_fetch_latest_news_gracefully_handles_rate_limits(
     fetcher = GdeltFetcher()
     block_requests_library.add(responses.GET, fetcher.base_url, json={}, status=429)
 
-    actual = fetcher.fetch_latest_news()
-
-    assert actual == []
+    with pytest.raises(
+        ConnectionError, match="GDELT API connection failed: 429 Client Error"
+    ):
+        fetcher.fetch_latest_news()
 
 
 def test_fetch_latest_news_aborts_immediately_on_empty_whitelist(monkeypatch):

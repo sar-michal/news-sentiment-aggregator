@@ -36,13 +36,13 @@ app.include_router(api_router, prefix="/api/v1")
 
 
 @app.get("/")
-async def root():
+async def root():  # pragma: no cover
     return {"status": "ok", "message": "ok"}
 
 
 # --- TEST ROUTES ---
 @app.get("/test-gdelt")
-async def test_gdelt():
+async def test_gdelt():  # pragma: no cover
     fetcher = GdeltFetcher()
     articles = fetcher.fetch_latest_news(max_records=10)
 
@@ -50,7 +50,7 @@ async def test_gdelt():
 
 
 @app.get("/test-scrape")
-async def test_scrape():
+async def test_scrape():  # pragma: no cover
     with open("/app/app/test_articles.json", "r") as file:
         test_articles = json.load(file)
 
@@ -68,7 +68,7 @@ async def test_scrape():
 
 
 @app.get("/test-celery")
-def test_celery_integration():
+def test_celery_integration():  # pragma: no cover
     task = trigger_gdelt_fetch.delay()
 
     return {"message": "Task sent to Celery successfully!", "task_id": task.id}

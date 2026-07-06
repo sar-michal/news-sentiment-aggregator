@@ -15,6 +15,7 @@ def setup_task_globals(monkeypatch):
     monkeypatch.setattr(tasks_module, "gdelt_fetcher", MagicMock())
     monkeypatch.setattr(tasks_module, "scraper", MagicMock())
     monkeypatch.setattr(tasks_module, "es_client", MagicMock())
+    monkeypatch.setattr(tasks_module, "nlp_processor", MagicMock())
 
 
 def test_trigger_gdelt_fetch_returns_empty_message_when_no_articles(monkeypatch):
@@ -124,24 +125,6 @@ def test_process_article_returns_failed_es_error_on_indexing_failure():
     assert actual == "Failed: Elasticsearch indexing error"
 
 
-def test_process_article_returns_success_when_extracted_and_indexed():
-    tasks_module.es_client.article_exists.return_value = False
-    tasks_module.scraper.scrape_article.return_value = "Extracted article text"
-    tasks_module.es_client.index_article.return_value = True
-
-    article_data = {
-        "url": "https://example.com/good-article",
-        "title": "Title",
-        "seendate": "20231024T153000Z",
-        "domain": "example.com",
-        "sourcecountry": "United States",
-    }
-
-    actual = process_article(article_data)
-
-    assert actual == "Success"
-
-
 def test_process_article_propagates_exceptions_for_celery_retry():
     tasks_module.es_client.article_exists.return_value = False
     tasks_module.scraper.scrape_article.side_effect = ConnectionError(
@@ -158,3 +141,91 @@ def test_process_article_propagates_exceptions_for_celery_retry():
 
     with pytest.raises(ConnectionError, match="Trafilatura failed"):
         process_article(article_data)
+
+
+def test_process_article_returns_partial_success_on_nlp_failure():
+    tasks_module.es_client.article_exists.return_value = False
+    tasks_module.scraper.scrape_article.return_value = "Extracted article text"
+    tasks_module.es_client.index_article.return_value = True
+
+    tasks_module.nlp_processor.process_article.side_effect = Exception("Model crashed")
+
+    article_data = {
+        "url": "https://example.com/nlp-fail",
+        "title": "Title",
+        "seendate": "20231024T153000Z",
+        "domain": "example.com",
+        "sourcecountry": "United States",
+    }
+
+    actual = process_article(article_data)
+
+    assert actual == "Partial Success: Base article saved, NLP evaluation failed"
+    tasks_module.nlp_processor.process_article.assert_called_once_with(
+        "Extracted article text"
+    )
+    tasks_module.es_client.update_article_nlp.assert_not_called()
+
+
+def test_process_article_returns_partial_success_on_es_update_failure():
+    tasks_module.es_client.article_exists.return_value = False
+    tasks_module.scraper.scrape_article.return_value = "Extracted article text"
+    tasks_module.es_client.index_article.return_value = True
+
+    fake_nlp_payload = {"sentences": [], "entities": [], "sentiment_score": 0.5}
+    tasks_module.nlp_processor.process_article.return_value = fake_nlp_payload
+    tasks_module.es_client.get_doc_id.return_value = "fake_doc_id"
+    tasks_module.es_client.update_article_nlp.return_value = False
+
+    article_data = {
+        "url": "https://example.com/es-update-fail",
+        "title": "Title",
+        "seendate": "20231024T153000Z",
+        "domain": "example.com",
+        "sourcecountry": "United States",
+    }
+
+    actual = process_article(article_data)
+
+    assert actual == "Partial Success: Base article saved, Elasticsearch update failed"
+    tasks_module.nlp_processor.process_article.assert_called_once_with(
+        "Extracted article text"
+    )
+    tasks_module.es_client.get_doc_id.assert_called_once_with(
+        "https://example.com/es-update-fail"
+    )
+    tasks_module.es_client.update_article_nlp.assert_called_once_with(
+        "fake_doc_id", fake_nlp_payload
+    )
+
+
+def test_process_article_returns_success_when_extracted_indexed_and_nlp_updated():
+    tasks_module.es_client.article_exists.return_value = False
+    tasks_module.scraper.scrape_article.return_value = "Extracted article text"
+    tasks_module.es_client.index_article.return_value = True
+
+    fake_nlp_payload = {"sentences": [], "entities": [], "sentiment_score": 0.5}
+    tasks_module.nlp_processor.process_article.return_value = fake_nlp_payload
+    tasks_module.es_client.get_doc_id.return_value = "fake_doc_id"
+    tasks_module.es_client.update_article_nlp.return_value = True
+
+    article_data = {
+        "url": "https://example.com/good-article",
+        "title": "Title",
+        "seendate": "20231024T153000Z",
+        "domain": "example.com",
+        "sourcecountry": "United States",
+    }
+
+    actual = process_article(article_data)
+
+    assert actual == "Success"
+    tasks_module.nlp_processor.process_article.assert_called_once_with(
+        "Extracted article text"
+    )
+    tasks_module.es_client.get_doc_id.assert_called_once_with(
+        "https://example.com/good-article"
+    )
+    tasks_module.es_client.update_article_nlp.assert_called_once_with(
+        "fake_doc_id", fake_nlp_payload
+    )
