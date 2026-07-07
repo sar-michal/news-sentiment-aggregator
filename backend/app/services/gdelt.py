@@ -69,8 +69,10 @@ class GdeltFetcher:
 
             # Handle rate limiting
             if response.status_code == 429:
-                logger.warning("GDELT Rate Limit hit (HTTP 429). Skipping this cycle.")
-                return []
+                logger.warning(
+                    "GDELT Rate Limit hit (HTTP 429). Raising exception for Celery retry."
+                )
+                response.raise_for_status()
 
             response.raise_for_status()
             data = response.json()

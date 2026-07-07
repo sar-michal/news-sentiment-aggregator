@@ -1,4 +1,5 @@
 import logging
+import socket
 import urllib.request
 from urllib.error import URLError
 from urllib.parse import urlsplit
@@ -28,16 +29,17 @@ class NewsScraper:
                 robots_url, data=None, headers={"User-Agent": self.user_agent}
             )
             try:
-                with urllib.request.urlopen(req, timeout=10) as response:
+                with urllib.request.urlopen(req, timeout=5) as response:
                     lines = (
                         response.read().decode("utf-8", errors="ignore").splitlines()
                     )
                     rp.parse(lines)
                 logger.debug(f"Fetched robots.txt for {domain_url}")
-            except URLError as e:
+            except (URLError, TimeoutError, socket.timeout) as e:
                 logger.warning(
                     f"Could not fetch robots.txt for {domain_url}: {e}. Defaulting to open."
                 )
+                rp.parse(["User-agent: *", "Allow: /"])
             self._robot_parsers[domain_url] = rp
         return self._robot_parsers[domain_url]
 

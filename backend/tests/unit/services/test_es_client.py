@@ -154,3 +154,57 @@ def test_article_exists_returns_false_and_handles_exceptions(
 
     assert result is False
     assert f"Failed to check existence for {url}: ES cluster offline" in caplog.text
+
+
+def test_get_doc_id(es_client):
+    url = "https://example.com/test-article"
+    expected_hash = hashlib.sha256(url.encode("utf-8")).hexdigest()
+
+    actual_hash = es_client.get_doc_id(url)
+    assert actual_hash == expected_hash
+
+
+def test_update_article_nlp_returns_true_on_successful_update(es_client, monkeypatch):
+    mock_update = MagicMock(return_value={"result": "updated"})
+    monkeypatch.setattr(es_client.client, "update", mock_update)
+
+    payload = {
+        "sentences": [{"text": "Hello", "sentiment_score": 0.5}],
+        "entities": [{"entity": "UN", "type": "ORG", "sentiment": 0.5}],
+        "sentiment_score": 0.5,
+    }
+
+    result = es_client.update_article_nlp("fake_id_123", payload)
+
+    assert result is True
+    mock_update.assert_called_once_with(
+        index=es_client.index_name,
+        id="fake_id_123",
+        doc={
+            "sentences": payload["sentences"],
+            "entities": payload["entities"],
+            "sentiment_score": 0.5,
+        },
+    )
+
+
+def test_update_article_nlp_returns_false_on_unexpected_result_status(
+    es_client, monkeypatch
+):
+    mock_update = MagicMock(return_value={"result": "created"})
+    monkeypatch.setattr(es_client.client, "update", mock_update)
+
+    result = es_client.update_article_nlp("fake_id_123", {})
+
+    assert result is False
+
+
+def test_update_article_nlp_catches_exceptions_and_returns_false(
+    es_client, monkeypatch
+):
+    mock_update = MagicMock(side_effect=Exception("Simulated Elasticsearch crash"))
+    monkeypatch.setattr(es_client.client, "update", mock_update)
+
+    result = es_client.update_article_nlp("fake_id_123", {})
+
+    assert result is False

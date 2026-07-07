@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from app.schemas.article import ArticleData
 from app.services.es_client import ElasticClient
 from app.services.gdelt import GdeltFetcher
+from app.services.nlp import NLPProcessor
 from app.services.scraper import NewsScraper
 from app.workers.celery_app import celery
 
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 gdelt_fetcher = None
 scraper = None
 es_client = None
+nlp_processor = None
 
 
 @worker_process_init.connect
@@ -21,18 +23,22 @@ def init_worker_services(**kwargs):
     """
     Celery Signal: Runs strictly once when the worker process boots up.
     """
-    global gdelt_fetcher, scraper, es_client
-    logger.info("Initializing global worker services and connection pools...")
+    global gdelt_fetcher, scraper, es_client, nlp_processor
+    logger.info(
+        "Initializing global worker services, ML models, and connection pools..."
+    )
     gdelt_fetcher = GdeltFetcher()
     scraper = NewsScraper()
     es_client = ElasticClient()
+
+    nlp_processor = NLPProcessor()
 
     es_client.create_index()
 
 
 @celery.task(
     bind=True,
-    max_retries=3,
+    max_retries=2,
     autoretry_for=(ConnectionError,),
     retry_backoff=60,
     retry_jitter=True,
@@ -54,10 +60,16 @@ def trigger_gdelt_fetch(self):
 
 
 @celery.task(
-    bind=True, max_retries=2, autoretry_for=(ConnectionError,), retry_backoff=30
+    bind=True,
+    max_retries=2,
+    autoretry_for=(ConnectionError,),
+    retry_backoff=30,
 )
 def process_article(self, article_dict: dict):
-    """Consumer: Downloads HTML and extracts article text."""
+    """
+    Consumer: Downloads HTML and extracts article text, indexes base document,
+    and executes Aspect-Based Sentiment Analysis pipeline
+    """
     try:
         article_data = ArticleData(**article_dict)
     except ValidationError as e:
@@ -81,6 +93,20 @@ def process_article(self, article_dict: dict):
     if not success:
         return "Failed: Elasticsearch indexing error"
 
-    # TODO: Add sentiment analysis
+    logger.info(f"Executing NLP sentiment and ABSA analysis for: {url}")
+    try:
+        nlp_payload = nlp_processor.process_article(text)
+    except Exception as e:
+        logger.error(f"Error inside NLP processor for {url}: {e}", exc_info=True)
+        return "Partial Success: Base article saved, NLP evaluation failed"
+
+    doc_id = es_client.get_doc_id(url)
+
+    nlp_updated = es_client.update_article_nlp(doc_id, nlp_payload)
+    if not nlp_updated:
+        logger.warning(
+            f"Task completing with Partial Success. NLP update failed for {url}"
+        )
+        return "Partial Success: Base article saved, Elasticsearch update failed"
 
     return "Success"
