@@ -1,3 +1,10 @@
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Model Weights and Hugging Face Checkpoints
+ml_experiments/checkpoints/
+ml_experiments/newsmtsc_distilroberta_absa/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
