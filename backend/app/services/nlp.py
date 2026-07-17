@@ -109,9 +109,9 @@ class NLPProcessor:
 
         # Supported entities
         target_labels = {"ORG", "PERSON", "GPE", "PRODUCT", "NORP", "EVENT"}
-        processed_entities: List[Dict[str, Any]] = []
-
-        entity_tracker: Dict[tuple, List[float]] = {}
+        
+        # For deduplication
+        unique_inference_pairs = set()
 
         for ent in doc.ents:
             if ent.label_ in target_labels:
@@ -131,27 +131,42 @@ class NLPProcessor:
 
                 if matched_sent:
                     clean_matched_text = " ".join(matched_sent.text.split())
-                    # Construct Text-Pair Inference: [CLS] Sentence [SEP] Entity [SEP]
-                    inputs = self.absa_tokenizer(
-                        clean_matched_text,
-                        ent_name,
-                        return_tensors="pt",
-                        padding=True,
-                        truncation=True,
-                        max_length=128,
-                    ).to(self.device)
+                    unique_inference_pairs.add((clean_matched_text, ent_name, ent.label_))
 
-                    with torch.no_grad():
-                        outputs = self.absa_model(**inputs)
-                        logits = outputs.logits.numpy()
-                        pred_idx = int(np.argmax(logits, axis=-1)[0])
+        unique_inference_pairs = list(unique_inference_pairs)
+        entity_tracker: Dict[tuple, List[float]] = {}
 
-                    absa_score = self.absa_score_map[pred_idx]
+        batch_size = 16
 
-                    key = (ent_name, ent.label_)
-                    if key not in entity_tracker:
-                        entity_tracker[key] = []
-                    entity_tracker[key].append(absa_score)
+        for i in range(0, len(unique_inference_pairs), batch_size):
+            batch = unique_inference_pairs[i : i + batch_size]
+            
+            batch_sentences = [pair[0] for pair in batch]
+            batch_entities = [pair[1] for pair in batch]
+
+            inputs = self.absa_tokenizer(
+                batch_sentences,
+                batch_entities,
+                return_tensors="pt",
+                padding=True,
+                truncation=True,
+                max_length=128,
+            ).to(self.device)
+
+            with torch.no_grad():
+                outputs = self.absa_model(**inputs)
+                logits = outputs.logits.numpy()
+                pred_idxs = np.argmax(logits, axis=-1)
+
+            for pair, pred_idx in zip(batch, pred_idxs):
+                ent_name = pair[1]
+                ent_type = pair[2]
+                absa_score = self.absa_score_map[int(pred_idx)]
+
+                key = (ent_name, ent_type)
+                if key not in entity_tracker:
+                    entity_tracker[key] = []
+                entity_tracker[key].append(absa_score)
 
         # Aggregate Entity Scores
         processed_entities = []
