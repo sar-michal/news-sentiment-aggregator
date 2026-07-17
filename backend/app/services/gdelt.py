@@ -72,7 +72,7 @@ class GdeltFetcher:
                 logger.warning(
                     "GDELT Rate Limit hit (HTTP 429). Raising exception for Celery retry."
                 )
-                response.raise_for_status()
+                raise ConnectionError("HTTP 429: Too Many Requests")
 
             response.raise_for_status()
             data = response.json()
@@ -99,5 +99,8 @@ class GdeltFetcher:
             return valid_articles
 
         except requests.exceptions.RequestException as e:
-            logger.error(f"Error connecting to GDELT: {e}")
-            raise ConnectionError(f"GDELT API connection failed: {e}") from e
+            error_type = type(e).__name__
+            clean_url = e.request.url.split('?')[0] if e.request else self.base_url
+
+            logger.error(f"Error connecting to GDELT: {error_type} at {clean_url}")
+            raise ConnectionError(f"GDELT API connection failed: {error_type}") from e

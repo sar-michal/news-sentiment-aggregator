@@ -24,6 +24,12 @@ def init_worker_services(**kwargs):
     Celery Signal: Runs strictly once when the worker process boots up.
     """
     global gdelt_fetcher, scraper, es_client, nlp_processor
+
+    # Suppress unneeded logs
+    logging.getLogger("huggingface_hub.utils._http").setLevel(logging.ERROR)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("elastic_transport.transport").setLevel(logging.WARNING)
+
     logger.info(
         "Initializing global worker services, ML models, and connection pools..."
     )
@@ -39,14 +45,23 @@ def init_worker_services(**kwargs):
 @celery.task(
     bind=True,
     max_retries=2,
-    autoretry_for=(ConnectionError,),
     retry_backoff=60,
     retry_jitter=True,
 )
 def trigger_gdelt_fetch(self):
     """Producer: Fetches the latest GDELT articles and queues respective scraping tasks."""
     logger.info("Starting GDELT fetch...")
-    articles = gdelt_fetcher.fetch_latest_news(max_records=50)
+    try:
+        articles = gdelt_fetcher.fetch_latest_news(max_records=50)
+    except ConnectionError as e:
+        if self.request.retries < self.max_retries:
+            logger.warning(
+                f"Retrying... (Attempt {self.request.retries + 1}/{self.max_retries})"
+            )
+            raise self.retry(exc=e)
+        
+        logger.error("GDELT fetch aborted: Maximum retries reached. Yielding until next cycle.")
+        return "Failed: GDELT retry limit reached"
 
     if not articles:
         logger.info("No articles fetched this cycle.")
