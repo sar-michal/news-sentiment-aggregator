@@ -82,13 +82,13 @@ class NLPProcessor:
         # PASS 1: Narrative analysis
         # ==========================================
 
-        raw_sentence_texts = [sent.text.strip() for sent in raw_sentences]
+        raw_sentence_texts = [" ".join(sent.text.split()) for sent in raw_sentences]
         pipe_outputs = self.sentiment_pipe(raw_sentence_texts)
 
         processed_sentences = []
         running_total_sentiment = 0.0
 
-        for idx, (sent_text, output) in enumerate(zip(raw_sentences, pipe_outputs)):
+        for idx, (sent_text, output) in enumerate(zip(raw_sentence_texts, pipe_outputs)):
             # Cast to standard float
             score = self._convert_score(output["label"], output["score"])
             running_total_sentiment += score
@@ -130,9 +130,10 @@ class NLPProcessor:
                 )
 
                 if matched_sent:
+                    clean_matched_text = " ".join(matched_sent.text.split())
                     # Construct Text-Pair Inference: [CLS] Sentence [SEP] Entity [SEP]
                     inputs = self.absa_tokenizer(
-                        matched_sent.text.strip(),
+                        clean_matched_text,
                         ent_name,
                         return_tensors="pt",
                         padding=True,
