@@ -2,7 +2,6 @@ import logging
 import os
 from typing import Any, Dict, List
 
-import numpy as np
 import spacy
 import torch
 import transformers
@@ -36,7 +35,6 @@ class NLPProcessor:
             "positive": 1.0,
             "neutral": 0.0,
             "negative": -1.0,
-            # Fallback labels for other models
             "label_0": -1.0,
             "label_1": 0.0,
             "label_2": 1.0,
@@ -54,14 +52,6 @@ class NLPProcessor:
         self.device = torch.device("cpu")
         self.absa_model.to(self.device)
         self.absa_model.eval()
-
-        self.absa_score_map = {0: -1.0, 1: 0.0, 2: 1.0}
-
-    def _convert_score(self, label: str, score: float) -> float:
-        """Converts narrative model label string and confidence score into a normalized float between -1.0 and 1.0."""
-        clean_label = label.lower().strip()
-        weight = self.label_weights.get(clean_label, 0.0)
-        return float(weight * score)
 
     def process_article(self, text: str) -> Dict[str, Any]:
         """
@@ -83,21 +73,31 @@ class NLPProcessor:
         # ==========================================
 
         raw_sentence_texts = [" ".join(sent.text.split()) for sent in raw_sentences]
-        pipe_outputs = self.sentiment_pipe(raw_sentence_texts)
+        pipe_outputs = self.sentiment_pipe(raw_sentence_texts, top_k=None)
 
         processed_sentences = []
         running_total_sentiment = 0.0
 
-        for idx, (sent_text, output) in enumerate(zip(raw_sentence_texts, pipe_outputs)):
-            # Cast to standard float
-            score = self._convert_score(output["label"], output["score"])
-            running_total_sentiment += score
+        for idx, (sent_text, output_list) in enumerate(zip(raw_sentence_texts, pipe_outputs)):
+            pos_score = 0.0
+            neg_score = 0.0
+            
+            for pred in output_list:
+                label = pred["label"].lower().strip()
+                weight = self.label_weights.get(label, 0.0)
+                if weight == 1.0:
+                    pos_score += pred["score"]
+                elif weight == -1.0:
+                    neg_score += pred["score"]
+            
+            continuous_score = pos_score - neg_score
+            running_total_sentiment += continuous_score
 
             processed_sentences.append(
                 {
                     "sequence_index": idx,
                     "text": sent_text,
-                    "sentiment_score": round(score, 4),
+                    "sentiment_score": round(continuous_score, 4),
                 }
             )
 
@@ -107,7 +107,6 @@ class NLPProcessor:
         # PASS 2: ABSA
         # ==========================================
 
-        # Supported entities
         target_labels = {"ORG", "PERSON", "GPE", "PRODUCT", "NORP", "EVENT"}
         
         # For deduplication
@@ -155,13 +154,19 @@ class NLPProcessor:
 
             with torch.no_grad():
                 outputs = self.absa_model(**inputs)
-                logits = outputs.logits.numpy()
-                pred_idxs = np.argmax(logits, axis=-1)
+                
+                # Softmax to convert into probability percentages
+                probs = torch.softmax(outputs.logits, dim=-1).cpu().numpy()
 
-            for pair, pred_idx in zip(batch, pred_idxs):
+            for pair, prob in zip(batch, probs):
                 ent_name = pair[1]
                 ent_type = pair[2]
-                absa_score = self.absa_score_map[int(pred_idx)]
+                
+                # 0: Negative, 1: Neutral, 2: Positive
+                p_neg = float(prob[0])
+                p_pos = float(prob[2])
+                
+                absa_score = p_pos - p_neg
 
                 key = (ent_name, ent_type)
                 if key not in entity_tracker:
