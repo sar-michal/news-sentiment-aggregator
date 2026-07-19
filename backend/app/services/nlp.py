@@ -73,15 +73,19 @@ class NLPProcessor:
         # ==========================================
 
         raw_sentence_texts = [" ".join(sent.text.split()) for sent in raw_sentences]
-        pipe_outputs = self.sentiment_pipe(raw_sentence_texts, top_k=None)
+        pipe_outputs = self.sentiment_pipe(
+            raw_sentence_texts, batch_size=16, top_k=None
+        )
 
         processed_sentences = []
         running_total_sentiment = 0.0
 
-        for idx, (sent_text, output_list) in enumerate(zip(raw_sentence_texts, pipe_outputs)):
+        for idx, (sent_text, output_list) in enumerate(
+            zip(raw_sentence_texts, pipe_outputs)
+        ):
             pos_score = 0.0
             neg_score = 0.0
-            
+
             for pred in output_list:
                 label = pred["label"].lower().strip()
                 weight = self.label_weights.get(label, 0.0)
@@ -89,7 +93,7 @@ class NLPProcessor:
                     pos_score += pred["score"]
                 elif weight == -1.0:
                     neg_score += pred["score"]
-            
+
             continuous_score = pos_score - neg_score
             running_total_sentiment += continuous_score
 
@@ -108,38 +112,82 @@ class NLPProcessor:
         # ==========================================
 
         target_labels = {"ORG", "PERSON", "GPE", "PRODUCT", "NORP", "EVENT"}
-        
+
         # For deduplication
-        unique_inference_pairs = set()
+        raw_inference_pairs = set()
 
         for ent in doc.ents:
-            if ent.label_ in target_labels:
-                ent_name = ent.text.strip()
-                if not ent_name:
-                    continue
+            if ent.label_ not in target_labels:
+                continue
 
-                matched_sent = next(
-                    (
-                        sent
-                        for sent in raw_sentences
-                        if ent.start_char >= sent.start_char
-                        and ent.end_char <= sent.end_char
-                    ),
-                    None,
-                )
+            ent_name = ent.text.strip()
+            if not ent_name:
+                continue
 
-                if matched_sent:
-                    clean_matched_text = " ".join(matched_sent.text.split())
-                    unique_inference_pairs.add((clean_matched_text, ent_name, ent.label_))
+            # Strip leading determiners
+            lower_name = ent_name.lower()
+            if lower_name.startswith("the "):
+                ent_name = ent_name[4:].strip()
+            elif lower_name.startswith("an "):
+                ent_name = ent_name[3:].strip()
+            elif lower_name.startswith("a "):
+                ent_name = ent_name[2:].strip()
 
-        unique_inference_pairs = list(unique_inference_pairs)
+            if not ent_name:
+                continue
+
+            # Drop lowercase PERSONs
+            if ent_name.islower() and ent.label_ == "PERSON":
+                continue
+
+            matched_sent = next(
+                (
+                    sent
+                    for sent in raw_sentences
+                    if ent.start_char >= sent.start_char
+                    and ent.end_char <= sent.end_char
+                ),
+                None,
+            )
+
+            if matched_sent:
+                clean_matched_text = " ".join(matched_sent.text.split())
+                raw_inference_pairs.add((clean_matched_text, ent_name, ent.label_))
+
+        # Coreference & Presentation
+        names_by_type = {}
+        for _, name, label in raw_inference_pairs:
+            if label not in names_by_type:
+                names_by_type[label] = set()
+            names_by_type[label].add(name)
+
+        resolution_map = {}
+        for label, names in names_by_type.items():
+            sorted_names = sorted(list(names), key=len, reverse=True)
+            for name in sorted_names:
+                resolved = name
+                name_words = name.lower().split()
+
+                for longer_name in sorted_names:
+                    longer_words = longer_name.lower().split()
+                    if name.lower() != longer_name.lower() and all(
+                        w in longer_words for w in name_words
+                    ):
+                        resolved = longer_name
+                        break
+
+                final_resolved = resolved.title() if resolved.islower() else resolved
+                resolution_map[(name, label)] = final_resolved
+
+        # Batch Processing
+        unique_inference_pairs = list(raw_inference_pairs)
         entity_tracker: Dict[tuple, List[float]] = {}
 
         batch_size = 16
 
         for i in range(0, len(unique_inference_pairs), batch_size):
             batch = unique_inference_pairs[i : i + batch_size]
-            
+
             batch_sentences = [pair[0] for pair in batch]
             batch_entities = [pair[1] for pair in batch]
 
@@ -154,21 +202,24 @@ class NLPProcessor:
 
             with torch.no_grad():
                 outputs = self.absa_model(**inputs)
-                
+
                 # Softmax to convert into probability percentages
                 probs = torch.softmax(outputs.logits, dim=-1).cpu().numpy()
 
             for pair, prob in zip(batch, probs):
-                ent_name = pair[1]
+                original_name = pair[1]
                 ent_type = pair[2]
-                
-                # 0: Negative, 1: Neutral, 2: Positive
+
+                resolved_name = resolution_map.get(
+                    (original_name, ent_type), original_name
+                )
+
                 p_neg = float(prob[0])
                 p_pos = float(prob[2])
-                
+
                 absa_score = p_pos - p_neg
 
-                key = (ent_name, ent_type)
+                key = (resolved_name, ent_type)
                 if key not in entity_tracker:
                     entity_tracker[key] = []
                 entity_tracker[key].append(absa_score)
