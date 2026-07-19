@@ -42,12 +42,7 @@ def init_worker_services(**kwargs):
     es_client.create_index()
 
 
-@celery.task(
-    bind=True,
-    max_retries=2,
-    retry_backoff=60,
-    retry_jitter=True,
-)
+@celery.task(bind=True, max_retries=2)
 def trigger_gdelt_fetch(self):
     """Producer: Fetches the latest GDELT articles and queues respective scraping tasks."""
     logger.info("Starting GDELT fetch...")
@@ -55,12 +50,17 @@ def trigger_gdelt_fetch(self):
         articles = gdelt_fetcher.fetch_latest_news(max_records=50)
     except ConnectionError as e:
         if self.request.retries < self.max_retries:
+            # 90s, 180s...
+            delay = 90 * (2**self.request.retries)
+
             logger.warning(
-                f"Retrying... (Attempt {self.request.retries + 1}/{self.max_retries})"
+                f"Retrying in {delay}s... (Attempt {self.request.retries + 1}/{self.max_retries})"
             )
-            raise self.retry(exc=e)
-        
-        logger.error("GDELT fetch aborted: Maximum retries reached. Yielding until next cycle.")
+            raise self.retry(exc=e, countdown=delay)
+
+        logger.error(
+            "GDELT fetch aborted: Maximum retries reached. Yielding until next cycle."
+        )
         return "Failed: GDELT retry limit reached"
 
     if not articles:
