@@ -1,0 +1,11 @@
+# ML Training Stack
+torch
+transformers
+datasets
+evaluate
+scikit-learn
+numpy
+accelerate
+
+# Workspace
+jupyterlab

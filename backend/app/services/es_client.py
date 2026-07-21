@@ -124,5 +124,8 @@ class ElasticClient:
             return False
 
         except Exception as e:
-            logger.error(f"Failed to update document {doc_id} with NLP payload: {e}")
+            error_name = type(e).__name__
+            logger.error(
+                f"Failed to update document {doc_id}. Error type: {error_name}"
+            )
             return False

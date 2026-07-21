@@ -67,9 +67,7 @@ def test_fetch_latest_news_gracefully_handles_rate_limits(
     fetcher = GdeltFetcher()
     block_requests_library.add(responses.GET, fetcher.base_url, json={}, status=429)
 
-    with pytest.raises(
-        ConnectionError, match="GDELT API connection failed: 429 Client Error"
-    ):
+    with pytest.raises(ConnectionError, match="HTTP 429: Too Many Requests"):
         fetcher.fetch_latest_news()
 
 
