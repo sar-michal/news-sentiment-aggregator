@@ -120,9 +120,18 @@ class NLPProcessor:
             if ent.label_ not in target_labels:
                 continue
 
-            ent_name = ent.text.strip()
+            # Change newlines/tabs into single spaces
+            ent_name = " ".join(ent.text.split())
             if not ent_name:
                 continue
+
+            # Strip trailing conjunctions/prepositions
+            if ent_name.lower().endswith((" and", " for")):
+                ent_name = ent_name[:-4].strip()
+
+            # Strip trailing possessives
+            if ent_name.lower().endswith(("'s", "’s")):
+                ent_name = ent_name[:-2].strip()
 
             # Strip leading determiners
             lower_name = ent_name.lower()
