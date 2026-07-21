@@ -130,8 +130,11 @@ class NLPProcessor:
                 ent_name = ent_name[:-4].strip()
 
             # Strip trailing possessives
-            if ent_name.lower().endswith(("'s", "’s")):
+            lower_name = ent_name.lower()
+            if lower_name.endswith(("'s", "’s")):
                 ent_name = ent_name[:-2].strip()
+            elif lower_name.endswith(("'", "’")):
+                ent_name = ent_name[:-1].strip()
 
             # Strip leading determiners
             lower_name = ent_name.lower()

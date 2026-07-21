@@ -40,6 +40,7 @@ class DummyDocComplex:
             DummySpan("Apple also released a phone.", 51, 79),
             DummySpan("god was thanked.", 80, 96),
             DummySpan("the alps are cold.", 97, 115),
+            DummySpan("Texas' laws changed.", 116, 136),
         ]
         self.ents = [
             DummySpan("The UN", 0, 6, "ORG"),  # Should strip "The "
@@ -49,15 +50,14 @@ class DummyDocComplex:
             DummySpan(
                 "the alps", 97, 105, "GPE"
             ),  # Should strip "the ", title case -> "Alps"
+            DummySpan(
+                "Texas'", 116, 122, "GPE"
+            ),  # Should strip trailing "'" -> "Texas"
         ]
 
 
 @pytest.fixture
 def nlp_processor(monkeypatch):
-    """
-    Fixture that initializes the NLPProcessor and mocks spaCy
-    and Hugging Face model classes.
-    """
     mock_spacy_load = MagicMock()
     monkeypatch.setattr(nlp_module.spacy, "load", mock_spacy_load)
 
@@ -154,7 +154,7 @@ def test_process_article_data_cleaning_and_coreference(nlp_processor, monkeypatc
             {"label": "neutral", "score": 0.1},
             {"label": "negative", "score": 0.1},
         ]
-        for _ in range(5)
+        for _ in range(6)
     ]
 
     nlp_processor.absa_tokenizer.return_value.to.return_value = {"input_ids": "mock"}
@@ -166,13 +166,14 @@ def test_process_article_data_cleaning_and_coreference(nlp_processor, monkeypatc
     nlp_processor.absa_model.return_value = MockOutput()
 
     def mock_softmax(logits, dim):
-        # 'god' is dropped, leaving 4 valid pairs
+        # 'god' is dropped, leaving 5 valid pairs
         return torch.tensor(
             [
                 [0.1, 0.1, 0.8],  # The UN -> UN
                 [0.1, 0.1, 0.8],  # Apple Inc's -> Apple Inc
                 [0.1, 0.1, 0.8],  # Apple -> Apple (Aggregated later)
                 [0.1, 0.1, 0.8],  # the alps -> alps (Titlecased later)
+                [0.1, 0.1, 0.8],  # Texas' -> Texas
             ]
         )
 
@@ -181,17 +182,20 @@ def test_process_article_data_cleaning_and_coreference(nlp_processor, monkeypatc
     payload = nlp_processor.process_article("Fake dirty article.")
 
     # "Apple" and "Apple Inc" merge into 1
-    assert len(payload["entities"]) == 3
+    assert len(payload["entities"]) == 4
 
     entity_names = [e["entity"] for e in payload["entities"]]
 
     assert "UN" in entity_names
     assert "Apple Inc" in entity_names
     assert "Alps" in entity_names
+    assert "Texas" in entity_names
 
     assert "god" not in entity_names
     assert "Apple" not in entity_names
     assert "alps" not in entity_names
+    assert "Texas'" not in entity_names
+    assert "Apple Inc's" not in entity_names
 
 
 def test_process_article_handles_text_with_zero_extractable_entities(nlp_processor):
