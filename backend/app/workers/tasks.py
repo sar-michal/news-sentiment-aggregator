@@ -47,7 +47,7 @@ def trigger_gdelt_fetch(self):
     """Producer: Fetches the latest GDELT articles and queues respective scraping tasks."""
     logger.info("Starting GDELT fetch...")
     try:
-        articles = gdelt_fetcher.fetch_latest_news(max_records=50)
+        articles = gdelt_fetcher.fetch_latest_news(max_records=250)
     except ConnectionError as e:
         if self.request.retries < self.max_retries:
             # 90s, 180s...

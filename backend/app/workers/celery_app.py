@@ -19,6 +19,15 @@ celery.conf.update(
     enable_utc=True,
     worker_hijack_root_logger=False,
     worker_redirect_stdouts=False,
+    beat_schedule={
+        "fetch-gdelt-every-2-hours": {
+            "task": "app.workers.tasks.trigger_gdelt_fetch",
+            "schedule": 7200,  # 2 hours
+            "options": {
+                "expires": 600.0,
+            },
+        }
+    },
 )
 
 

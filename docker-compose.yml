@@ -117,6 +117,21 @@ services:
         condition: service_started
     networks:
       - backend_network
+# --- Scheduler (Celery Beat) ---
+  celery-beat:
+    build: ./backend
+    container_name: celery_beat
+    command: celery -A app.workers.celery_app beat --loglevel=info
+    volumes:
+      - ./backend:/app
+    environment:
+      - REDIS_URL=redis://${DOCKER_REDIS_HOST}:6379/0
+      - C_FORCE_ROOT=true
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - backend_network
 
 volumes:
   postgres_data:
