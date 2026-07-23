@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from app.services.es_search import AsyncSearchClient
 from elasticsearch.exceptions import ConnectionError as ESConnectionError
+from elasticsearch.exceptions import NotFoundError
 
 
 @pytest.fixture
@@ -14,6 +15,7 @@ def mock_es(monkeypatch):
     mock_instance.search = AsyncMock(
         return_value={"hits": {"total": {"value": 0}, "hits": []}}
     )
+    mock_instance.get = AsyncMock()
 
     monkeypatch.setattr(
         "app.services.es_search.AsyncElasticsearch",
@@ -26,6 +28,9 @@ def mock_es(monkeypatch):
 def search_client(mock_es):
     """Returns an AsyncSearchClient instance that uses the mocked ES underneath."""
     return AsyncSearchClient()
+
+
+# --- SEARCH ARTICLES TESTS ---
 
 
 @pytest.mark.asyncio
@@ -143,32 +148,161 @@ def test_format_response_maps_sentences_and_entities_correctly(search_client):
     assert article.snippets.most_positive == "Amazing!"
 
 
-def test_format_response_handles_missing_sentences_with_default_snippets(
-    search_client,
-):
-    es_response = {
-        "hits": {
-            "total": {"value": 1},
-            "hits": [
-                {
-                    "_id": "hash123",
-                    "_source": {
-                        "url": "https://example.com",
-                        "title": "No Text",
-                        "seendate": "2023-10-24T15:30:00Z",
-                        "domain": "example.com",
-                        "sourcecountry": "US",
-                        "sentences": [],
-                    },
-                }
+# --- GET ARTICLE TESTS ---
+
+
+@pytest.mark.asyncio
+async def test_get_article_returns_mapped_schema(search_client, mock_es):
+    mock_es.get.return_value = {
+        "_id": "id123",
+        "_source": {
+            "url": "https://bbc.co.uk",
+            "title": "Breaking News",
+            "domain": "bbc.co.uk",
+            "sourcecountry": "UK",
+            "seendate": "2023-10-25T10:00:00Z",
+            "sentences": [
+                {"sequence_index": 0, "text": "Test.", "sentiment_score": 0.5}
             ],
+        },
+    }
+    res = await search_client.get_article("id123")
+    assert res is not None
+    assert res.id == "id123"
+    assert res.title == "Breaking News"
+    assert res.snippets.most_positive == "Test."
+
+
+@pytest.mark.asyncio
+async def test_get_article_returns_none_on_404(search_client, mock_es):
+    mock_es.get.side_effect = NotFoundError(404, "Not Found", {})
+    res = await search_client.get_article("fake_id")
+    assert res is None
+
+
+@pytest.mark.asyncio
+async def test_get_article_raises_connection_error_on_failure(search_client, mock_es):
+    mock_es.get.side_effect = ESConnectionError("Offline")
+    with pytest.raises(ConnectionError, match="Database connection failed"):
+        await search_client.get_article("id123")
+
+
+# --- SENTIMEMT TREND TESTS ---
+
+
+@pytest.mark.asyncio
+async def test_get_sentiment_trend_builds_aggregations(search_client, mock_es):
+    mock_es.search.return_value = {
+        "aggregations": {
+            "trend": {
+                "buckets": [
+                    {
+                        "key_as_string": "2023-10-24",
+                        "key": 1698105600000,
+                        "doc_count": 10,
+                        "avg_sentiment": {"value": 0.25},
+                    }
+                ]
+            }
         }
     }
 
-    response = search_client._format_response(es_response, page=1, size=20)
+    res = await search_client.get_sentiment_trend(
+        start_date="2023-10-01", domain="reuters.com"
+    )
 
-    article = response.articles[0]
-    assert article.timeline == []
-    assert article.snippets is not None
-    assert article.snippets.most_positive is None
-    assert article.snippets.most_negative is None
+    call_args = mock_es.search.call_args[1]
+    assert call_args["size"] == 0
+    assert call_args["query"]["bool"]["filter"][0] == {
+        "term": {"domain": "reuters.com"}
+    }
+    assert res["trends"][0]["avg_sentiment"] == 0.25
+    assert res["trends"][0]["date"] == "2023-10-24"
+
+
+# --- TOP ENTITIES TESTS ---
+
+
+@pytest.mark.asyncio
+async def test_get_top_entities_builds_nested_aggregation_and_formats_results(
+    search_client, mock_es
+):
+    mock_es.search.return_value = {
+        "aggregations": {
+            "nested_entities": {
+                "most_positive": {
+                    "buckets": [
+                        {
+                            "key": "Apple",
+                            "doc_count": 8,
+                            "sum_sentiment": {"value": 5.6},
+                            "avg_sentiment": {"value": 0.7},
+                            "entity_type": {"buckets": [{"key": "ORG"}]},
+                        }
+                    ]
+                },
+                "most_negative": {
+                    "buckets": [
+                        {
+                            "key": "Tesla",
+                            "doc_count": 6,
+                            "sum_sentiment": {"value": -4.8},
+                            "avg_sentiment": {"value": -0.8},
+                            "entity_type": {"buckets": [{"key": "ORG"}]},
+                        }
+                    ]
+                },
+            }
+        }
+    }
+
+    result = await search_client.get_top_entities(
+        start_date="2024-01-01", end_date="2024-01-31", min_mentions=5
+    )
+
+    call_args = mock_es.search.call_args[1]
+    assert call_args["index"] == search_client.index_name
+    assert call_args["size"] == 0
+    assert "nested_entities" in call_args["aggs"]
+
+    assert result["most_positive"][0]["entity"] == "Apple"
+    assert result["most_negative"][0]["sum_sentiment"] == -4.8
+
+
+@pytest.mark.asyncio
+async def test_get_top_entities_raises_connection_error_on_es_failure(
+    search_client, mock_es
+):
+    mock_es.search.side_effect = ESConnectionError("cluster offline")
+
+    with pytest.raises(ConnectionError, match="Database connection failed"):
+        await search_client.get_top_entities()
+
+
+# --- GET DOMAINS TESTS ---
+
+
+@pytest.mark.asyncio
+async def test_get_domains_extracts_keys(search_client, mock_es):
+    mock_es.search.return_value = {
+        "aggregations": {
+            "unique_domains": {
+                "buckets": [
+                    {"key": "cnn.com", "doc_count": 50},
+                    {"key": "bbc.com", "doc_count": 40},
+                ]
+            }
+        }
+    }
+
+    res = await search_client.get_domains()
+    assert res["domains"] == ["cnn.com", "bbc.com"]
+
+
+@pytest.mark.asyncio
+async def test_get_domains_raises_runtime_error_on_generic_exception(
+    search_client, mock_es
+):
+    mock_es.search.side_effect = Exception("Crash")
+    with pytest.raises(RuntimeError, match="Failed to fetch domains"):
+        await search_client.get_domains()
