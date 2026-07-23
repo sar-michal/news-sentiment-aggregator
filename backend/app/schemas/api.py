@@ -63,7 +63,7 @@ class EntityLeaderboardItem(BaseModel):
 
 
 class TopEntitiesResponse(BaseModel):
-    """Repsonse wrapper for multiple entities."""
+    """Response wrapper for multiple entities."""
 
     most_positive: list[EntityLeaderboardItem]
     most_negative: list[EntityLeaderboardItem]
@@ -75,6 +75,12 @@ class TrendDataPoint(BaseModel):
     date: str
     avg_sentiment: float
     doc_count: int
+
+
+class SentimentTrendResponse(BaseModel):
+    """Response wrapper for a list of trend data points."""
+
+    trends: list[TrendDataPoint]
 
 
 class DomainListResponse(BaseModel):

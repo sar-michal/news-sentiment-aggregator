@@ -12,6 +12,7 @@ from app.schemas.api import (
     DomainListResponse,
     EntityLeaderboardItem,
     KeySnippets,
+    SentimentTrendResponse,
     TimelinePoint,
     TopEntitiesResponse,
     TrendDataPoint,
@@ -248,7 +249,7 @@ class AsyncSearchClient:
                 response.get("aggregations", {}).get("trend", {}).get("buckets", [])
             )
 
-            trend_data = []
+            trend_points = []
             for b in buckets:
                 val = b.get("avg_sentiment", {}).get("value")
                 point = TrendDataPoint(
@@ -256,8 +257,8 @@ class AsyncSearchClient:
                     avg_sentiment=round(val, 4) if val is not None else 0.0,
                     doc_count=b["doc_count"],
                 )
-                trend_data.append(point.model_dump())
-            return trend_data
+                trend_points.append(point)
+            return SentimentTrendResponse(trends=trend_points).model_dump()
 
         except Exception as e:
             logger.error(f"Error fetching sentiment trend: {e}")
