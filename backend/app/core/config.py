@@ -81,7 +81,7 @@ class Settings(BaseSettings):
         "/commentisfree/",
         "/opinion/",
         "/opinions/",
-        "/editorials/"
+        "/editorials/",
         # 8. Administrative / Housekeeping
         "/corrections-and-clarifications",
     }
