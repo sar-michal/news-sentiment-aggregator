@@ -42,7 +42,7 @@ def init_worker_services(**kwargs):
     es_client.create_index()
 
 
-@celery.task(bind=True, max_retries=2)
+@celery.task(bind=True, max_retries=3)
 def trigger_gdelt_fetch(self):
     """Producer: Fetches the latest GDELT articles and queues respective scraping tasks."""
     logger.info("Starting GDELT fetch...")
@@ -125,3 +125,42 @@ def process_article(self, article_dict: dict):
         return "Partial Success: Base article saved, Elasticsearch update failed"
 
     return "Success"
+
+
+@celery.task(bind=True, max_retries=1)
+def trigger_gdelt_backfill(self, days_back: int = 30):
+    """Producer: Checks Elasticsearch for missing days and queues historical backfills."""
+    logger.info(f"Starting GDELT backfill check for the last {days_back} days...")
+
+    missing_days = es_client.get_missing_scored_days(days_back=days_back)
+
+    if not missing_days:
+        logger.info("No missing days found. Database is fully populated.")
+        return "No backfill required."
+
+    logger.info(f"Found {len(missing_days)} missing days: {missing_days}")
+
+    total_queued = 0
+    for day_str in missing_days:
+        # Convert ES format (YYYYMMDD) into GDELT API format (YYYYMMDDHHMMSS)
+        start_dt = f"{day_str}000000"
+        end_dt = f"{day_str}235959"
+
+        try:
+            articles = gdelt_fetcher.fetch_historical_news(
+                start_datetime=start_dt, end_datetime=end_dt, max_records=250
+            )
+            for article in articles:
+                article_dict = article.model_dump(mode="json")
+                process_article.delay(article_dict)
+
+            total_queued += len(articles)
+        except ConnectionError:
+            logger.error(
+                f"Backfill hit an API block for {day_str}. Aborting remaining days."
+            )
+            break
+
+    return (
+        f"Backfill queued {total_queued} total articles for {len(missing_days)} days."
+    )
