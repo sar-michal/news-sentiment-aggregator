@@ -129,3 +129,62 @@ class ElasticClient:
                 f"Failed to update document {doc_id}. Error type: {error_name}"
             )
             return False
+
+    def get_missing_scored_days(self, days_back: int = 30) -> list[str]:
+        """Finds days within the last `days_back` that have zero scored articles."""
+        from datetime import datetime, timedelta, timezone
+
+        now = datetime.now(timezone.utc)
+        # Exclude today
+        end_date = datetime.now(timezone.utc) - timedelta(days=1)
+        start_date = now - timedelta(days=days_back)
+
+        query = {
+            "range": {
+                "seendate": {
+                    "gte": start_date.strftime("%Y-%m-%d"),
+                    "lte": now.strftime("%Y-%m-%d"),
+                }
+            }
+        }
+
+        aggs = {
+            "daily_articles": {
+                "date_histogram": {
+                    "field": "seendate",
+                    "calendar_interval": "1d",
+                    "format": "yyyyMMdd",
+                    "min_doc_count": 0,
+                    "extended_bounds": {
+                        "min": start_date.strftime("%Y%m%d"),
+                        "max": end_date.strftime("%Y%m%d"),
+                    },
+                },
+                "aggs": {
+                    "scored_docs": {"filter": {"exists": {"field": "sentiment_score"}}}
+                },
+            }
+        }
+
+        try:
+            response = self.client.search(
+                index=self.index_name, size=0, query=query, aggs=aggs
+            )
+
+            buckets = (
+                response.get("aggregations", {})
+                .get("daily_articles", {})
+                .get("buckets", [])
+            )
+            missing_days = []
+
+            for b in buckets:
+                if b.get("scored_docs", {}).get("doc_count", 0) == 0:
+                    missing_days.append(b["key_as_string"])
+            # most recent days first
+            missing_days.reverse()
+            return missing_days
+
+        except Exception as e:
+            logger.error(f"Failed to find missing days: {e}")
+            return []

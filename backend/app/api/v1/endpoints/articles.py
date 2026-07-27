@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.api.deps import get_search_client
-from app.schemas.api import ArticleListResponse
+from app.schemas.api import ArticleListResponse, ArticleResponse
 from app.services.es_search import AsyncSearchClient
 
 router = APIRouter()
@@ -19,6 +19,28 @@ async def search_articles(
         return await client.search_articles(
             query_str=query_str, domain=domain, page=page, size=size
         )
+    except ConnectionError:
+        raise HTTPException(
+            status_code=503, detail="Search service is temporarily unavailable."
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=500, detail="An internal search error occurred."
+        )
+
+
+@router.get("/{article_id}", response_model=ArticleResponse)
+async def get_article(
+    article_id: str,
+    client: AsyncSearchClient = Depends(get_search_client),
+):
+    try:
+        article = await client.get_article(article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+        return article
+    except HTTPException:
+        raise
     except ConnectionError:
         raise HTTPException(
             status_code=503, detail="Search service is temporarily unavailable."

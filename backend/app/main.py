@@ -10,7 +10,7 @@ from app.core.logging_config import setup_logging
 from app.services.es_search import AsyncSearchClient
 from app.services.gdelt import GdeltFetcher
 from app.services.scraper import NewsScraper
-from app.workers.tasks import trigger_gdelt_fetch
+from app.workers.tasks import trigger_gdelt_backfill, trigger_gdelt_fetch
 
 setup_logging()
 
@@ -72,3 +72,13 @@ def test_celery_integration():  # pragma: no cover
     task = trigger_gdelt_fetch.delay()
 
     return {"message": "Task sent to Celery successfully!", "task_id": task.id}
+
+
+@app.get("/test-backfill")
+def test_backfill():  # pragma: no cover
+    task = trigger_gdelt_backfill.delay()
+
+    return {
+        "message": "Task for backfill sent to Celery successfully!",
+        "task_id": task.id,
+    }

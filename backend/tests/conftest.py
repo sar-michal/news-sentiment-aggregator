@@ -1,5 +1,8 @@
+from unittest.mock import MagicMock
+
 import pytest
 import responses
+from app.api.deps import get_search_client
 from app.core.config import Environment, settings
 from app.main import app
 from app.workers.celery_app import celery
@@ -9,7 +12,19 @@ from fastapi.testclient import TestClient
 @pytest.fixture
 def client():
     """Provides a test client for FastAPI routes."""
-    return TestClient(app)
+    with TestClient(app) as client:
+        yield client
+
+
+@pytest.fixture
+def mock_search_client():
+    """Globally shared mock for the AsyncSearchClient dependency."""
+    mock_client = MagicMock()
+    app.dependency_overrides[get_search_client] = lambda: mock_client
+    try:
+        yield mock_client
+    finally:
+        app.dependency_overrides.clear()
 
 
 @pytest.fixture(autouse=True)

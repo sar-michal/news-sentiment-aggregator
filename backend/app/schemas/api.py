@@ -50,3 +50,40 @@ class ArticleListResponse(BaseModel):
     size: int
     total_pages: int
     articles: list[ArticleResponse]
+
+
+class EntityLeaderboardItem(BaseModel):
+    """Represents a single entity on the leaderboard."""
+
+    entity: str
+    type: str
+    avg_sentiment: float
+    sum_sentiment: float
+    mention_count: int
+
+
+class TopEntitiesResponse(BaseModel):
+    """Response wrapper for multiple entities."""
+
+    most_positive: list[EntityLeaderboardItem]
+    most_negative: list[EntityLeaderboardItem]
+
+
+class TrendDataPoint(BaseModel):
+    """Represents a single point on the sentiment timeline chart."""
+
+    date: str
+    avg_sentiment: float
+    doc_count: int
+
+
+class SentimentTrendResponse(BaseModel):
+    """Response wrapper for a list of trend data points."""
+
+    trends: list[TrendDataPoint]
+
+
+class DomainListResponse(BaseModel):
+    """Returns a list of unique domains for the UI filter dropdown."""
+
+    domains: list[str]
