@@ -268,12 +268,16 @@ class AsyncSearchClient:
         self,
         start_date: str | None = None,
         end_date: str | None = None,
+        domain: str | None = None,
         min_mentions: int = 5,
     ) -> dict:
         """Finds the most impactful positive and negative entities."""
 
         filter_clauses = []
         date_range = {}
+
+        if domain:
+            filter_clauses.append({"term": {"domain": domain}})
 
         if start_date:
             date_range["gte"] = start_date

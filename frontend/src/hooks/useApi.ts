@@ -35,15 +35,17 @@ export function useSentimentTrend(
 }
 
 export function useTopEntities(
+  domain?: string,
   minMentions = 5, 
   startDate?: string, 
   endDate?: string
 ) {
   return useQuery({
-    queryKey: ['topEntities', minMentions, startDate, endDate],
+    queryKey: ['topEntities', domain, minMentions, startDate, endDate],
     queryFn: async () => {
       const response = await apiClient.get<TopEntitiesResponse>('/analytics/top-entities', {
         params: { 
+          domain: domain,
           min_mentions: minMentions,
           start_date: startDate,
           end_date: endDate

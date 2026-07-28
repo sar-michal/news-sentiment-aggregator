@@ -39,6 +39,7 @@ export default function App() {
   )
 
   const { data: entitiesData, isLoading: entitiesLoading } = useTopEntities(
+    domain,
     5,
     startDate || undefined,
     endDate || undefined
@@ -196,6 +197,9 @@ export default function App() {
           <Card>
             <CardHeader>
               <CardTitle className="text-emerald-600 dark:text-emerald-400">Top Positive Entities</CardTitle>
+                <CardDescription>
+                  {domain && `for ${domain}`}
+                </CardDescription>
             </CardHeader>
             <CardContent>
               {entitiesLoading ? (
@@ -226,7 +230,10 @@ export default function App() {
           {/* Negative Entities */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-destructive">Top Negative Entities</CardTitle>
+              <CardTitle className="text-destructive">Top Negative Entities </CardTitle>
+                <CardDescription>
+                  {domain && `for ${domain}`}
+                </CardDescription>
             </CardHeader>
             <CardContent>
               {entitiesLoading ? (

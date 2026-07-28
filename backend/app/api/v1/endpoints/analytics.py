@@ -36,6 +36,7 @@ async def get_sentiment_trend(
 async def get_top_entities(
     start_date: str | None = Query(None, description="Start date (YYYY-MM-DD)"),
     end_date: str | None = Query(None, description="End date (YYYY-MM-DD)"),
+    domain: str | None = None,
     min_mentions: int = Query(5, description="Minimum occurrences to be included"),
     client: AsyncSearchClient = Depends(get_search_client),
 ):
@@ -44,7 +45,10 @@ async def get_top_entities(
     """
     try:
         return await client.get_top_entities(
-            start_date=start_date, end_date=end_date, min_mentions=min_mentions
+            start_date=start_date,
+            end_date=end_date,
+            domain=domain,
+            min_mentions=min_mentions,
         )
     except ConnectionError:
         raise HTTPException(
