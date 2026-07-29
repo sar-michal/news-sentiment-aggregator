@@ -23,6 +23,15 @@ import {
   SelectValue 
 } from "@/components/ui/select"
 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+
 export default function App() {
   const [interval, setIntervalState] = useState<string>('day')
   const [domain, setDomain] = useState<string>('')
@@ -39,7 +48,7 @@ export default function App() {
   )
 
   const { data: entitiesData, isLoading: entitiesLoading } = useTopEntities(
-    domain,
+    domain || undefined,
     5,
     startDate || undefined,
     endDate || undefined
@@ -193,70 +202,88 @@ export default function App() {
         {/* ENTITIES GRID */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
-          {/* Positive Entities */}
+          {/* Positive Entities Table */}
           <Card>
             <CardHeader>
               <CardTitle className="text-emerald-600 dark:text-emerald-400">Top Positive Entities</CardTitle>
-                <CardDescription>
-                  {domain && `for ${domain}`}
-                </CardDescription>
+              <CardDescription>{domain && `for ${domain}`}</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0 sm:p-6 sm:pt-0">
               {entitiesLoading ? (
-                <p className="text-muted-foreground animate-pulse">Loading entities...</p>
+                <p className="p-6 text-muted-foreground animate-pulse">Loading entities...</p>
+              ) : entitiesData?.most_positive.length === 0 ? (
+                <p className="p-6 text-muted-foreground text-sm">No positive entities found.</p>
               ) : (
-                <ul className="divide-y divide-border">
-                  {entitiesData?.most_positive.map((item, idx) => (
-                    <li key={idx} className="py-3 flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{item.entity}</span>
-                        <Badge variant="secondary" className="text-xs font-normal">
-                          {item.type}
-                        </Badge>
-                      </div>
-                      <div className="text-emerald-600 dark:text-emerald-400 font-semibold text-sm">
-                        +{item.avg_sentiment.toFixed(2)}
-                      </div>
-                    </li>
-                  ))}
-                  {entitiesData?.most_positive.length === 0 && (
-                    <li className="py-3 text-muted-foreground text-sm">No positive entities found.</li>
-                  )}
-                </ul>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Entity</TableHead>
+                      <TableHead className="text-right">Mentions</TableHead>
+                      <TableHead className="text-right">Avg</TableHead>
+                      <TableHead className="text-right">Sum</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {entitiesData?.most_positive.map((item, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell className="font-medium">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                            {item.entity}
+                            <Badge variant="secondary" className="w-fit text-[10px] sm:text-xs">
+                              {item.type}
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground">{item.mention_count}</TableCell>
+                        <TableCell className="text-right text-emerald-600 dark:text-emerald-400">+{item.avg_sentiment.toFixed(2)}</TableCell>
+                        <TableCell className="text-right text-emerald-600 dark:text-emerald-400 font-semibold">+{item.sum_sentiment.toFixed(2)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>
 
-          {/* Negative Entities */}
+          {/* Negative Entities Table */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-destructive">Top Negative Entities </CardTitle>
-                <CardDescription>
-                  {domain && `for ${domain}`}
-                </CardDescription>
+              <CardTitle className="text-destructive">Top Negative Entities</CardTitle>
+              <CardDescription>{domain && `for ${domain}`}</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0 sm:p-6 sm:pt-0">
               {entitiesLoading ? (
-                <p className="text-muted-foreground animate-pulse">Loading entities...</p>
+                <p className="p-6 text-muted-foreground animate-pulse">Loading entities...</p>
+              ) : entitiesData?.most_negative.length === 0 ? (
+                <p className="p-6 text-muted-foreground text-sm">No negative entities found.</p>
               ) : (
-                <ul className="divide-y divide-border">
-                  {entitiesData?.most_negative.map((item, idx) => (
-                    <li key={idx} className="py-3 flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{item.entity}</span>
-                        <Badge variant="secondary" className="text-xs font-normal">
-                          {item.type}
-                        </Badge>
-                      </div>
-                      <div className="text-destructive font-semibold text-sm">
-                        {item.avg_sentiment.toFixed(2)}
-                      </div>
-                    </li>
-                  ))}
-                  {entitiesData?.most_negative.length === 0 && (
-                    <li className="py-3 text-muted-foreground text-sm">No negative entities found.</li>
-                  )}
-                </ul>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Entity</TableHead>
+                      <TableHead className="text-right">Mentions</TableHead>
+                      <TableHead className="text-right">Avg</TableHead>
+                      <TableHead className="text-right">Sum</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {entitiesData?.most_negative.map((item, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell className="font-medium">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                            {item.entity}
+                            <Badge variant="secondary" className="w-fit text-[10px] sm:text-xs">
+                              {item.type}
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground">{item.mention_count}</TableCell>
+                        <TableCell className="text-right text-destructive">{item.avg_sentiment.toFixed(2)}</TableCell>
+                        <TableCell className="text-right text-destructive font-semibold">{item.sum_sentiment.toFixed(2)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>
