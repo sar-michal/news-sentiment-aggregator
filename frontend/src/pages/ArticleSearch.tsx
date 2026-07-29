@@ -215,6 +215,7 @@ export default function ArticleSearch() {
                         <div className="flex items-center gap-3 flex-wrap">
                           <Link 
                             to={`/article/${article.id}`} 
+                            state={{ searchString: searchParams.toString() }}
                             className="font-semibold text-lg text-foreground hover:text-primary transition-colors leading-tight"
                           >
                             {article.title}

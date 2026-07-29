@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router"
 import Layout from "./components/Layout"
 import MacroAnalytics from "./pages/MacroAnalytics"
 import ArticleSearch from "./pages/ArticleSearch"
+import ArticleDetails from "./pages/ArticleDetails"
 
 export default function App() {
   return (
@@ -9,6 +10,7 @@ export default function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<MacroAnalytics />} />
           <Route path="search" element={<ArticleSearch />} />
+          <Route path="article/:articleId" element={<ArticleDetails />} />
         </Route>
       </Routes>
   )
