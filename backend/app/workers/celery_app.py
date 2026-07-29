@@ -20,16 +20,16 @@ celery.conf.update(
     worker_hijack_root_logger=False,
     worker_redirect_stdouts=False,
     beat_schedule={
-        "fetch-gdelt-every-6-hours": {
+        "fetch-gdelt-every-1.5-hours": {
             "task": "app.workers.tasks.trigger_gdelt_fetch",
-            "schedule": 21600,  # 6 hours
+            "schedule": 5400,  # 1.5 hours
             "options": {
                 "expires": 600.0,
             },
         },
-        "gdelt-backfill-every-40-minutes": {
+        "gdelt-backfill-every-4-hours": {
             "task": "app.workers.tasks.trigger_gdelt_backfill",
-            "schedule": 2400,  # 40 minutes
+            "schedule": 14400,  # 4 hours
             "options": {
                 "expires": 1200.0,
             },
