@@ -61,3 +61,26 @@ export interface SentimentTrendResponse {
 export interface DomainListResponse {
   domains: string[];
 }
+
+export interface DomainEntityStats {
+  domain: string;
+  mention_count: number;
+  avg_sentiment: number;
+  sum_sentiment: number;
+}
+
+export interface EntityAnalysisResponse {
+  entity: string;
+  total_mentions: number;
+  overall_avg_sentiment: number;
+  overall_sum_sentiment: number;
+  domains: DomainEntityStats[];
+}
+
+export interface EntitySuggestionItem {
+  name: string;
+}
+
+export interface EntitySuggestionResponse {
+  suggestions: EntitySuggestionItem[];
+}

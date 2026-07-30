@@ -3,6 +3,7 @@ import Layout from "./components/Layout"
 import MacroAnalytics from "./pages/MacroAnalytics"
 import ArticleSearch from "./pages/ArticleSearch"
 import ArticleDetails from "./pages/ArticleDetails"
+import EntityAnalysis from "./pages/EntityAnalysis"
 
 export default function App() {
   return (
@@ -11,6 +12,7 @@ export default function App() {
           <Route index element={<MacroAnalytics />} />
           <Route path="search" element={<ArticleSearch />} />
           <Route path="article/:articleId" element={<ArticleDetails />} />
+          <Route path="entity-analysis" element={<EntityAnalysis />} />
         </Route>
       </Routes>
   )

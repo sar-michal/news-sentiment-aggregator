@@ -9,7 +9,9 @@ from app.core.config import settings
 from app.schemas.api import (
     ArticleListResponse,
     ArticleResponse,
+    DomainEntityStats,
     DomainListResponse,
+    EntityAnalysisResponse,
     EntityLeaderboardItem,
     KeySnippets,
     SentimentTrendResponse,
@@ -422,3 +424,184 @@ class AsyncSearchClient:
         except Exception as e:
             logger.error(f"Error fetching domains: {e}")
             raise RuntimeError("Failed to fetch domains") from e
+
+    async def get_entity_analysis(
+        self,
+        entity_name: str,
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> dict:
+        """Performs analysis of an entity globally and per domain."""
+        filter_clauses = []
+        date_range = {}
+
+        if start_date:
+            date_range["gte"] = start_date
+        if end_date:
+            date_range["lte"] = end_date
+        if date_range:
+            filter_clauses.append({"range": {"seendate": date_range}})
+
+        must_clauses = [
+            {
+                "nested": {
+                    "path": "entities",
+                    "query": {"term": {"entities.entity": entity_name}},
+                }
+            }
+        ]
+
+        query = {
+            "bool": {
+                "must": must_clauses,
+                "filter": filter_clauses,
+            }
+        }
+
+        aggs = {
+            "overall_nested": {
+                "nested": {"path": "entities"},
+                "aggs": {
+                    "match_entity": {
+                        "filter": {"term": {"entities.entity": entity_name}},
+                        "aggs": {
+                            "avg_sentiment": {"avg": {"field": "entities.sentiment"}},
+                            "sum_sentiment": {"sum": {"field": "entities.sentiment"}},
+                        },
+                    }
+                },
+            },
+            "domains": {
+                "terms": {"field": "domain", "size": 100, "order": {"_count": "desc"}},
+                "aggs": {
+                    "entity_nested": {
+                        "nested": {"path": "entities"},
+                        "aggs": {
+                            "match_entity": {
+                                "filter": {"term": {"entities.entity": entity_name}},
+                                "aggs": {
+                                    "avg_sentiment": {
+                                        "avg": {"field": "entities.sentiment"}
+                                    },
+                                    "sum_sentiment": {
+                                        "sum": {"field": "entities.sentiment"}
+                                    },
+                                },
+                            }
+                        },
+                    }
+                },
+            },
+        }
+
+        try:
+            response = await self.client.search(
+                index=self.index_name,
+                size=0,
+                query=query,
+                aggs=aggs,
+            )
+
+            overall_agg = (
+                response.get("aggregations", {})
+                .get("overall_nested", {})
+                .get("match_entity", {})
+            )
+            total_mentions = overall_agg.get("doc_count", 0)
+            overall_avg = overall_agg.get("avg_sentiment", {}).get("value")
+            overall_sum = overall_agg.get("sum_sentiment", {}).get("value")
+
+            domain_buckets = (
+                response.get("aggregations", {}).get("domains", {}).get("buckets", [])
+            )
+
+            domains_stats = []
+            for b in domain_buckets:
+                domain_name = b.get("key")
+                match_agg = b.get("entity_nested", {}).get("match_entity", {})
+                mention_count = match_agg.get("doc_count", 0)
+                avg_val = match_agg.get("avg_sentiment", {}).get("value")
+                sum_val = match_agg.get("sum_sentiment", {}).get("value")
+
+                domains_stats.append(
+                    DomainEntityStats(
+                        domain=domain_name,
+                        mention_count=mention_count,
+                        avg_sentiment=round(avg_val, 4) if avg_val is not None else 0.0,
+                        sum_sentiment=round(sum_val, 4) if sum_val is not None else 0.0,
+                    )
+                )
+
+            return EntityAnalysisResponse(
+                entity=entity_name,
+                total_mentions=total_mentions,
+                overall_avg_sentiment=round(overall_avg, 4)
+                if overall_avg is not None
+                else 0.0,
+                overall_sum_sentiment=round(overall_sum, 4)
+                if overall_sum is not None
+                else 0.0,
+                domains=domains_stats,
+            ).model_dump()
+
+        except ESConnectionError as e:
+            logger.error(
+                f"Elasticsearch connection error fetching entity analysis: {e}"
+            )
+            raise ConnectionError("Database connection failed") from e
+        except Exception as e:
+            logger.error(f"Error fetching entity analysis: {e}")
+            raise RuntimeError("Failed to fetch entity analysis") from e
+
+    async def suggest_entities(self, prefix: str, size: int = 8) -> list[str]:
+        """Returns the most common entities starting with the given prefix."""
+        if not prefix or len(prefix.strip()) < 2:
+            return []
+
+        aggs = {
+            "entity_nested": {
+                "nested": {"path": "entities"},
+                "aggs": {
+                    "filtered_entities": {
+                        "filter": {
+                            "prefix": {
+                                "entities.entity": {
+                                    "value": prefix.strip(),
+                                    "case_insensitive": True,
+                                }
+                            }
+                        },
+                        "aggs": {
+                            "entity_names": {
+                                "terms": {
+                                    "field": "entities.entity",
+                                    "size": size,
+                                    "order": {"_count": "desc"},
+                                }
+                            }
+                        },
+                    }
+                },
+            }
+        }
+
+        try:
+            response = await self.client.search(
+                index=self.index_name,
+                size=0,
+                aggs=aggs,
+            )
+
+            buckets = (
+                response.get("aggregations", {})
+                .get("entity_nested", {})
+                .get("filtered_entities", {})
+                .get("entity_names", {})
+                .get("buckets", [])
+            )
+
+            return [b["key"] for b in buckets]
+
+        except Exception as e:
+            logger.error(f"Error fetching entity suggestions: {e}")
+            return []

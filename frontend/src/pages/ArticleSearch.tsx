@@ -88,8 +88,8 @@ export default function ArticleSearch() {
 
   const getSentimentColor = (score?: number) => {
     if (score === undefined || score === null) return "bg-muted text-muted-foreground"
-    if (score > 0.2) return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
-    if (score < -0.2) return "bg-destructive/10 text-destructive dark:bg-destructive/20"
+    if (score > 0.15) return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
+    if (score < -0.15) return "bg-destructive/10 text-destructive dark:bg-destructive/20"
     return "bg-muted text-muted-foreground"
   }
 
@@ -127,7 +127,7 @@ export default function ArticleSearch() {
         
         <header className="pb-4 border-b border-border">
           <h1 className="text-3xl font-bold tracking-tight">Article Search</h1>
-          <p className="text-muted-foreground mt-1">Deep dive into specific news coverage and sentiment.</p>
+          <p className="text-muted-foreground mt-1">Analysis of specific news coverage and sentiment.</p>
         </header>
 
         {/* SEARCH & FILTER CONTROLS */}

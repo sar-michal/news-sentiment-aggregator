@@ -5,7 +5,9 @@ import type {
   ArticleResponse, 
   SentimentTrendResponse, 
   TopEntitiesResponse, 
-  DomainListResponse 
+  DomainListResponse,
+  EntityAnalysisResponse,
+  EntitySuggestionResponse
 } from '../types/api'
 
 const apiClient = axios.create({
@@ -100,5 +102,42 @@ export function useArticle(articleId: string | undefined) {
       return response.data
     },
     enabled: !!articleId, 
+  })
+}
+
+export function useEntityAnalysis(
+  entityName?: string,
+  startDate?: string,
+  endDate?: string
+) {
+  return useQuery({
+    queryKey: ['entityAnalysis', entityName, startDate, endDate],
+    queryFn: async () => {
+      if (!entityName) return null
+      const response = await apiClient.get<EntityAnalysisResponse>('/analytics/entity-analysis', {
+        params: { 
+          entity: entityName, 
+          start_date: startDate, 
+          end_date: endDate 
+        },
+      })
+      return response.data
+    },
+    enabled: !!entityName && entityName.trim().length > 0,
+  })
+}
+
+export function useEntitySuggest(prefix: string) {
+  return useQuery({
+    queryKey: ['entitySuggest', prefix],
+    queryFn: async () => {
+      const response = await apiClient.get<EntitySuggestionResponse>('/analytics/entity-suggest', {
+        params: { prefix },
+      })
+      return response.data
+    },
+    enabled: prefix.trim().length >= 2,
+    staleTime: 1000 * 60 * 5, 
+    placeholderData: (previousData) => previousData,
   })
 }

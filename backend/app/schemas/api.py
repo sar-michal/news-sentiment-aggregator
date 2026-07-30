@@ -87,3 +87,34 @@ class DomainListResponse(BaseModel):
     """Returns a list of unique domains for the UI filter dropdown."""
 
     domains: list[str]
+
+
+class DomainEntityStats(BaseModel):
+    """Represents entity statistics by news domain."""
+
+    domain: str
+    mention_count: int
+    avg_sentiment: float
+    sum_sentiment: float
+
+
+class EntityAnalysisResponse(BaseModel):
+    """Response wrapper for entity analysis across domains."""
+
+    entity: str
+    total_mentions: int
+    overall_avg_sentiment: float
+    overall_sum_sentiment: float
+    domains: list[DomainEntityStats]
+
+
+class EntitySuggestionItem(BaseModel):
+    """A single autocomplete prediction match."""
+
+    name: str
+
+
+class EntitySuggestionResponse(BaseModel):
+    """Wrapper response for entity suggestions."""
+
+    suggestions: list[EntitySuggestionItem]
