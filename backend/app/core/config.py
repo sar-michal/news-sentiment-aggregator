@@ -53,7 +53,7 @@ class Settings(BaseSettings):
         "/sounds/",
         "/photos/",
         "/transcripts/",
-        "/podcasts/"
+        "/podcasts/",
         # 4. Sports (Aggressive vocabulary skews geopolitical sentiment)
         "/sport/",
         "/sports/",

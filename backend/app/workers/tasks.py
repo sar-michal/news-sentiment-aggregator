@@ -128,7 +128,7 @@ def process_article(self, article_dict: dict):
 
 
 @celery.task(bind=True, max_retries=1)
-def trigger_gdelt_backfill(self, days_back: int = 30):
+def trigger_gdelt_backfill(self, days_back: int = 14):
     """Producer: Checks Elasticsearch for missing days and queues historical backfills."""
     logger.info(f"Starting GDELT backfill check for the last {days_back} days...")
 

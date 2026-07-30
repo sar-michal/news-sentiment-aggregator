@@ -1,7 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.api.deps import get_search_client
-from app.schemas.api import SentimentTrendResponse, TopEntitiesResponse
+from app.schemas.api import (
+    EntityAnalysisResponse,
+    EntitySuggestionResponse,
+    SentimentTrendResponse,
+    TopEntitiesResponse,
+)
 from app.services.es_search import AsyncSearchClient
 
 router = APIRouter()
@@ -36,6 +41,7 @@ async def get_sentiment_trend(
 async def get_top_entities(
     start_date: str | None = Query(None, description="Start date (YYYY-MM-DD)"),
     end_date: str | None = Query(None, description="End date (YYYY-MM-DD)"),
+    domain: str | None = None,
     min_mentions: int = Query(5, description="Minimum occurrences to be included"),
     client: AsyncSearchClient = Depends(get_search_client),
 ):
@@ -44,7 +50,10 @@ async def get_top_entities(
     """
     try:
         return await client.get_top_entities(
-            start_date=start_date, end_date=end_date, min_mentions=min_mentions
+            start_date=start_date,
+            end_date=end_date,
+            domain=domain,
+            min_mentions=min_mentions,
         )
     except ConnectionError:
         raise HTTPException(
@@ -54,3 +63,43 @@ async def get_top_entities(
         raise HTTPException(
             status_code=500, detail="An internal search error occurred."
         )
+
+
+@router.get("/entity-analysis", response_model=EntityAnalysisResponse)
+async def get_entity_analysis(
+    entity: str = Query(..., description="Entity name to analyze"),
+    start_date: str | None = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: str | None = Query(None, description="End date (YYYY-MM-DD)"),
+    client: AsyncSearchClient = Depends(get_search_client),
+):
+    """
+    Returns global and per-domain sentiment for a specific entity.
+    """
+    try:
+        return await client.get_entity_analysis(
+            entity_name=entity, start_date=start_date, end_date=end_date
+        )
+    except ConnectionError:
+        raise HTTPException(
+            status_code=503, detail="Search service is temporarily unavailable."
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=500, detail="An internal search error occurred."
+        )
+
+
+@router.get("/entity-suggest", response_model=EntitySuggestionResponse)
+async def suggest_entities(
+    prefix: str = Query(..., description="Prefix to search for"),
+    client: AsyncSearchClient = Depends(get_search_client),
+):
+    """
+    Returns autocomplete suggestions for entity names.
+    """
+    try:
+        raw_suggestions = await client.suggest_entities(prefix=prefix)
+        items = [{"name": s} for s in raw_suggestions]
+        return EntitySuggestionResponse(suggestions=items)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to fetch suggestions.")
