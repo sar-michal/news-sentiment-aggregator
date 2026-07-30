@@ -28,6 +28,8 @@ export default function ArticleSearch() {
   
   const query = searchParams.get("q") || undefined
   const domain = searchParams.get("domain") || "all"
+  const startDate = searchParams.get("start_date") || undefined
+  const endDate = searchParams.get("end_date") || undefined
   const size = searchParams.get("size") || "20"
   const page = parseInt(searchParams.get("page") || "1", 10)
 
@@ -35,13 +37,15 @@ export default function ArticleSearch() {
   const { data, isLoading, isError } = useArticleSearch(
     query, 
     domain === "all" ? undefined : domain, 
+    startDate,
+    endDate,
     page, 
     parseInt(size)
   )
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" })
-  }, [page, query, domain, size])
+  }, [page, query, domain, startDate, endDate, size])
 
   const updateParams = (updates: Record<string, string | undefined>) => {
     const newParams = new URLSearchParams(searchParams)
@@ -68,6 +72,14 @@ export default function ArticleSearch() {
   const handleSizeChange = (val: string | null) => {
     if (!val) return
     updateParams({ size: val, page: "1" })
+  }
+
+  const handleStartDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    updateParams({ start_date: e.target.value, page: "1" })
+  }
+
+  const handleEndDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    updateParams({ end_date: e.target.value, page: "1" })
   }
 
   const setPage = (newPage: number) => {
@@ -138,11 +150,11 @@ export default function ArticleSearch() {
               </Button>
             </form>
 
-            <div className="flex flex-col sm:flex-row gap-4 pt-2 border-t border-border/50">
-              <div className="flex items-center gap-2 flex-1">
+            <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-border/50">
+              <div className="flex items-center gap-2 flex-1 min-w-50">
                 <Label className="text-muted-foreground whitespace-nowrap">Source:</Label>
                 <Select value={domain} onValueChange={handleDomainChange}>
-                  <SelectTrigger className="w-full sm:w-48 h-9">
+                  <SelectTrigger className="w-full h-9">
                     <SelectValue placeholder="All Domains" />
                   </SelectTrigger>
                   <SelectContent>
@@ -155,9 +167,29 @@ export default function ArticleSearch() {
               </div>
 
               <div className="flex items-center gap-2">
-                <Label className="text-muted-foreground whitespace-nowrap">Results per page:</Label>
+                <Label className="text-muted-foreground whitespace-nowrap">From:</Label>
+                <Input 
+                  type="date" 
+                  value={startDate || ""} 
+                  onChange={handleStartDateChange} 
+                  className="h-9 w-32.5 sm:w-37.5 text-xs sm:text-sm"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Label className="text-muted-foreground whitespace-nowrap">To:</Label>
+                <Input 
+                  type="date" 
+                  value={endDate || ""} 
+                  onChange={handleEndDateChange} 
+                  className="h-9 w-32.5 sm:w-37.5 text-xs sm:text-sm"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 ml-auto">
+                <Label className="text-muted-foreground whitespace-nowrap">Per page:</Label>
                 <Select value={size} onValueChange={handleSizeChange}>
-                  <SelectTrigger className="w-24 h-9">
+                  <SelectTrigger className="w-20 h-9">
                     <SelectValue placeholder="20" />
                   </SelectTrigger>
                   <SelectContent>

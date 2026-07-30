@@ -36,6 +36,8 @@ class AsyncSearchClient:
         self,
         query_str: str | None = None,
         domain: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
         page: int = 1,
         size: int = 20,
     ) -> ArticleListResponse | None:
@@ -61,6 +63,15 @@ class AsyncSearchClient:
         if domain:
             # Exact match filtering
             filter_clauses.append({"term": {"domain": domain}})
+
+        if start_date or end_date:
+            date_range = {}
+            if start_date:
+                date_range["gte"] = start_date
+            if end_date:
+                date_range["lte"] = end_date
+
+            filter_clauses.append({"range": {"seendate": date_range}})
 
         try:
             response = await self.client.search(

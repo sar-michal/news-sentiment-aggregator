@@ -11,13 +11,20 @@ router = APIRouter()
 async def search_articles(
     query_str: str | None = Query(None, description="Search query string"),
     domain: str | None = Query(None, description="Filter by specific domain"),
+    start_date: str | None = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: str | None = Query(None, description="End date (YYYY-MM-DD)"),
     page: int = Query(1, ge=1, description="Page number for pagination"),
     size: int = Query(20, ge=1, le=100, description="Items per page"),
     client: AsyncSearchClient = Depends(get_search_client),
 ):
     try:
         return await client.search_articles(
-            query_str=query_str, domain=domain, page=page, size=size
+            query_str=query_str,
+            domain=domain,
+            start_date=start_date,
+            end_date=end_date,
+            page=page,
+            size=size,
         )
     except ConnectionError:
         raise HTTPException(

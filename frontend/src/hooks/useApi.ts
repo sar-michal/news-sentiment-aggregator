@@ -68,17 +68,21 @@ export function useDomains() {
 
 export function useArticleSearch(
   queryStr?: string, 
-  domain?: string, 
+  domain?: string,
+  startDate?: string,
+  endDate?: string,
   page = 1,
   size = 20
 ) {
   return useQuery({
-    queryKey: ['articles', queryStr, domain, page, size],
+    queryKey: ['articles', queryStr, domain, startDate, endDate, page, size],
     queryFn: async () => {
       const response = await apiClient.get<ArticleListResponse>('/articles/', {
         params: { 
           query_str: queryStr, 
-          domain, 
+          domain,
+          start_date: startDate,
+          end_date: endDate,
           page, 
           size 
         },
