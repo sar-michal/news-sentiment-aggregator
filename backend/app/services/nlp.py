@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Any, Dict, List
+from typing import Any
 
 import spacy
 import torch
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class NLPProcessor:
     def __init__(
         self,
-        narrative_model_name: str = "mrm8488/distilroberta-finetuned-financial-news-sentiment-analysis",
+        narrative_model_name: str = "cardiffnlp/twitter-roberta-base-sentiment-latest",
         absa_model_path: str = "ml_models/newsmtsc_distilroberta_absa",
     ):
         logger.info("Initializing spaCy en_core_web_md model...")
@@ -53,7 +53,7 @@ class NLPProcessor:
         self.absa_model.to(self.device)
         self.absa_model.eval()
 
-    def process_article(self, text: str) -> Dict[str, Any]:
+    def process_article(self, text: str) -> dict[str, Any]:
         """
         Dual-Pass NLP Pipeline:
         1. Pass 1: Sentence & Article overall sentiment
@@ -175,7 +175,7 @@ class NLPProcessor:
 
         resolution_map = {}
         for label, names in names_by_type.items():
-            sorted_names = sorted(list(names), key=len, reverse=True)
+            sorted_names = sorted(names, key=len, reverse=True)
             for name in sorted_names:
                 resolved = name
                 name_words = name.lower().split()
@@ -193,7 +193,7 @@ class NLPProcessor:
 
         # Batch Processing
         unique_inference_pairs = list(raw_inference_pairs)
-        entity_tracker: Dict[tuple, List[float]] = {}
+        entity_tracker: dict[tuple, list[float]] = {}
 
         batch_size = 16
 
