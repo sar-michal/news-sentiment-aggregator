@@ -28,8 +28,8 @@ class Settings(BaseSettings):
         "npr.org",
         "cnn.com",
         "cnbc.com",
-        "scmp.com",
-        "france24.com",
+        # "scmp.com",
+        # "france24.com",
         "timesofindia.indiatimes.com",
     }
 
