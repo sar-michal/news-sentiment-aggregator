@@ -1,25 +1,4 @@
 services:
-  # --- Database ---
-  db:
-    image: postgres:17-alpine
-    container_name: user_db
-    restart: always
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
-    ports:
-      - "${DB_PORT}:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - backend_network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   # --- Elasticsearch ---
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:9.3.0
@@ -87,12 +66,9 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@${DOCKER_DB_HOST}:5432/${DB_NAME}
       - ELASTICSEARCH_URL=http://${DOCKER_ES_HOST}:9200
       - REDIS_URL=redis://${DOCKER_REDIS_HOST}:6379/0
     depends_on:
-      db:
-        condition: service_healthy
       elasticsearch:
         condition: service_healthy
       redis:
@@ -108,7 +84,6 @@ services:
     volumes:
       - ./backend:/app
     environment:
-      - DATABASE_URL=postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@${DOCKER_DB_HOST}:5432/${DB_NAME}
       - ELASTICSEARCH_URL=http://${DOCKER_ES_HOST}:9200
       - REDIS_URL=redis://${DOCKER_REDIS_HOST}:6379/0
       - C_FORCE_ROOT=true
@@ -134,7 +109,6 @@ services:
       - backend_network
 
 volumes:
-  postgres_data:
   es_data:
   redis_data:
 
