@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     }
 
     # Blacklist for URL path filtering
-    URL_BLACKLIST: tuple[str, ...] = {
+    URL_BLACKLIST: tuple[str, ...] = (
         # 1. Non-English / Regional
         "/pidgin/",
         "/mundo/",
@@ -52,7 +52,6 @@ class Settings(BaseSettings):
         "/audio/",
         "/sounds/",
         "/photos/",
-        "/transcripts/",
         "/podcasts/",
         # 4. Sports (Aggressive vocabulary skews geopolitical sentiment)
         "/sport/",
@@ -71,20 +70,14 @@ class Settings(BaseSettings):
         "/food/",
         "/style/",
         "/travel/",
-        "/health/",
         "/tiny-happy-people/",
         "/select/",
         "/wellness/",
         "/recipes/",
         "/coupons/",
-        # 7. Opinion Pieces & Editorials (Highly subjective/biased)
-        "/commentisfree/",
-        "/opinion/",
-        "/opinions/",
-        "/editorials/",
-        # 8. Administrative / Housekeeping
+        # 7. Administrative / Housekeeping
         "/corrections-and-clarifications",
-    }
+    )
 
 
 # Module level singleton
