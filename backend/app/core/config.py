@@ -21,16 +21,16 @@ class Settings(BaseSettings):
 
     # Whitelist for domain filtering in GDELT queries
     GDELT_WHITELIST: set[str] = {
-        "reuters.com",
-        "apnews.com",
         "bbc.co.uk",
-        "bbc.com",
         "aljazeera.com",
         "dw.com",
         "theguardian.com",
         "npr.org",
         "cnn.com",
         "cnbc.com",
+        "scmp.com",
+        "france24.com",
+        "timesofindia.indiatimes.com",
     }
 
     # Blacklist for URL path filtering
