@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { useSearchParams } from "react-router"
 import { useEntityAnalysis, useEntitySuggest } from "../hooks/useApi"
+import { getSentimentTextColor } from "@/lib/sentiment"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -68,13 +69,6 @@ export default function EntityAnalysis() {
     if (e.target.value) newParams.set("end_date", e.target.value)
     else newParams.delete("end_date")
     setSearchParams(newParams)
-  }
-
-  const getSentimentTextColor = (score?: number) => {
-    if (score === undefined || score === null) return "text-muted-foreground"
-    if (score > 0.15) return "text-emerald-600 dark:text-emerald-400"
-    if (score < -0.15) return "text-destructive"
-    return "text-muted-foreground"
   }
 
   return (

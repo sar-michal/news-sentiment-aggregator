@@ -1,6 +1,7 @@
 import { useEffect } from "react"
 import { useSearchParams, Link } from "react-router"
 import { useArticleSearch, useDomains } from "../hooks/useApi"
+import { getSentimentBadgeColor } from "@/lib/sentiment"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -84,13 +85,6 @@ export default function ArticleSearch() {
 
   const setPage = (newPage: number) => {
     updateParams({ page: newPage.toString() })
-  }
-
-  const getSentimentColor = (score?: number) => {
-    if (score === undefined || score === null) return "bg-muted text-muted-foreground"
-    if (score > 0.15) return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
-    if (score < -0.15) return "bg-destructive/10 text-destructive dark:bg-destructive/20"
-    return "bg-muted text-muted-foreground"
   }
 
   const PaginationControls = ({ className = "" }: { className?: string }) => (
@@ -267,7 +261,7 @@ export default function ArticleSearch() {
                         </div>
                         
                         {article.sentiment_score !== undefined && article.sentiment_score !== null && (
-                          <Badge variant="outline" className={`shrink-0 ${getSentimentColor(article.sentiment_score)}`}>
+                          <Badge variant="outline" className={`shrink-0 ${getSentimentBadgeColor(article.sentiment_score)}`}>
                             {article.sentiment_score > 0 ? '+' : ''}{article.sentiment_score.toFixed(2)}
                           </Badge>
                         )}

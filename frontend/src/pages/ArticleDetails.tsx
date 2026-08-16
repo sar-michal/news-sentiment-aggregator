@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 import { useParams, Link, useLocation } from "react-router"
 import { useArticle } from "../hooks/useApi"
+import { getSentimentBadgeColor, getSentimentTextColor } from "@/lib/sentiment"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
@@ -80,20 +81,6 @@ export default function ArticleDetails() {
     if (val === "default" || val === "desc" || val === "asc") {
       setEntitySort(val)
     }
-  }
-
-  const getSentimentColor = (score?: number) => {
-    if (score === undefined || score === null) return "bg-muted text-muted-foreground"
-    if (score > 0.15) return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
-    if (score < -0.15) return "bg-destructive/10 text-destructive dark:bg-destructive/20"
-    return "bg-muted text-muted-foreground"
-  }
-
-  const getEntitySentimentTextColor = (score?: number) => {
-    if (score === undefined || score === null) return "text-muted-foreground"
-    if (score > 0.1) return "text-emerald-600 dark:text-emerald-400 font-semibold"
-    if (score < -0.1) return "text-destructive font-semibold"
-    return "text-muted-foreground"
   }
 
   if (isLoading) {
@@ -179,7 +166,7 @@ export default function ArticleDetails() {
             {article.sentiment_score !== undefined && article.sentiment_score !== null && (
               <div className="flex flex-col items-start md:items-end gap-1 shrink-0">
                 <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Overall Sentiment</span>
-                <Badge className={`text-lg px-3 py-1 font-bold ${getSentimentColor(article.sentiment_score)}`}>
+                <Badge className={`text-lg px-3 py-1 font-bold ${getSentimentBadgeColor(article.sentiment_score)}`}>
                   {article.sentiment_score > 0 ? '+' : ''}{article.sentiment_score.toFixed(2)}
                 </Badge>
               </div>
@@ -397,7 +384,7 @@ export default function ArticleDetails() {
                           </TableCell>
                           <TableCell className="text-right">
                             {entitySentiment !== undefined && entitySentiment !== null ? (
-                              <span className={`text-sm ${getEntitySentimentTextColor(entitySentiment)}`}>
+                              <span className={`text-sm ${getSentimentTextColor(entitySentiment)}`}>
                                 {entitySentiment > 0 ? '+' : ''}{entitySentiment.toFixed(2)}
                               </span>
                             ) : (

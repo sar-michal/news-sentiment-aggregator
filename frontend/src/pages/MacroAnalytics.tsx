@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useSentimentTrend, useTopEntities, useDomains } from '../hooks/useApi'
+import { getSentimentTextColor } from '@/lib/sentiment'
 import {
   LineChart,
   Line,
@@ -235,8 +236,12 @@ export default function MacroAnalytics() {
                           </div>
                         </TableCell>
                         <TableCell className="text-right text-muted-foreground">{item.mention_count}</TableCell>
-                        <TableCell className="text-right text-emerald-600 dark:text-emerald-400">+{item.avg_sentiment.toFixed(2)}</TableCell>
-                        <TableCell className="text-right text-emerald-600 dark:text-emerald-400 font-semibold">+{item.sum_sentiment.toFixed(2)}</TableCell>
+                        <TableCell className={`text-right ${getSentimentTextColor(item.avg_sentiment)}`}>
+                          {item.avg_sentiment > 0 ? '+' : ''}{item.avg_sentiment.toFixed(2)}
+                        </TableCell>
+                        <TableCell className={`text-right font-bold ${getSentimentTextColor(item.avg_sentiment)}`}>
+                          {item.sum_sentiment > 0 ? '+' : ''}{item.sum_sentiment.toFixed(2)}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -278,8 +283,12 @@ export default function MacroAnalytics() {
                           </div>
                         </TableCell>
                         <TableCell className="text-right text-muted-foreground">{item.mention_count}</TableCell>
-                        <TableCell className="text-right text-destructive">{item.avg_sentiment.toFixed(2)}</TableCell>
-                        <TableCell className="text-right text-destructive font-semibold">{item.sum_sentiment.toFixed(2)}</TableCell>
+                        <TableCell className={`text-right ${getSentimentTextColor(item.avg_sentiment)}`}>
+                          {item.avg_sentiment > 0 ? '+' : ''}{item.avg_sentiment.toFixed(2)}
+                        </TableCell>
+                        <TableCell className={`text-right font-bold ${getSentimentTextColor(item.avg_sentiment)}`}>
+                          {item.sum_sentiment > 0 ? '+' : ''}{item.sum_sentiment.toFixed(2)}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
