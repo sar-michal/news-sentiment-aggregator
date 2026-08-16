@@ -27,9 +27,9 @@ celery.conf.update(
                 "expires": 600.0,
             },
         },
-        "gdelt-backfill-every-4-hours": {
+        "gdelt-backfill-every-2-hours": {
             "task": "app.workers.tasks.trigger_gdelt_backfill",
-            "schedule": 14400,  # 4 hours
+            "schedule": 7200,  # 2 hours
             "options": {
                 "expires": 1200.0,
             },
