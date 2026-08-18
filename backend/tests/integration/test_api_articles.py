@@ -53,6 +53,8 @@ def test_search_articles_success(client, mock_article_response, mock_search_clie
     mock_search_client.search_articles.assert_awaited_once_with(
         query_str="economy",
         domain=None,
+        start_date=None,
+        end_date=None,
         page=1,
         size=20,
     )
@@ -60,6 +62,34 @@ def test_search_articles_success(client, mock_article_response, mock_search_clie
     data = response.json()
     assert data["total_results"] == 1
     assert data["articles"][0]["title"] == "Economy Crashes"
+
+
+def test_search_articles_with_filters(
+    client, mock_article_response, mock_search_client
+):
+    mock_search_client.search_articles = AsyncMock(return_value=mock_article_response)
+
+    response = client.get(
+        "/api/v1/articles/",
+        params={
+            "query_str": "economy",
+            "domain": "example.com",
+            "start_date": "2026-01-01",
+            "end_date": "2026-12-31",
+            "page": 2,
+            "size": 50,
+        },
+    )
+
+    mock_search_client.search_articles.assert_awaited_once_with(
+        query_str="economy",
+        domain="example.com",
+        start_date="2026-01-01",
+        end_date="2026-12-31",
+        page=2,
+        size=50,
+    )
+    assert response.status_code == 200
 
 
 def test_search_articles_503_connection_error(client, mock_search_client):
@@ -72,6 +102,8 @@ def test_search_articles_503_connection_error(client, mock_search_client):
     mock_search_client.search_articles.assert_awaited_once_with(
         query_str="economy",
         domain=None,
+        start_date=None,
+        end_date=None,
         page=1,
         size=20,
     )
@@ -89,6 +121,8 @@ def test_search_articles_500_runtime_error(client, mock_search_client):
     mock_search_client.search_articles.assert_awaited_once_with(
         query_str="economy",
         domain=None,
+        start_date=None,
+        end_date=None,
         page=1,
         size=20,
     )

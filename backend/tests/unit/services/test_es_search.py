@@ -306,3 +306,144 @@ async def test_get_domains_raises_runtime_error_on_generic_exception(
     mock_es.search.side_effect = Exception("Crash")
     with pytest.raises(RuntimeError, match="Failed to fetch domains"):
         await search_client.get_domains()
+
+
+# --- ERROR HANDLING TESTS ---
+
+
+@pytest.mark.asyncio
+async def test_get_sentiment_trend_raises_runtime_error_on_generic_exception(
+    search_client, mock_es
+):
+    mock_es.search.side_effect = Exception("Crash")
+    with pytest.raises(RuntimeError, match="Failed to fetch sentiment trend"):
+        await search_client.get_sentiment_trend()
+
+
+@pytest.mark.asyncio
+async def test_get_top_entities_raises_runtime_error_on_generic_exception(
+    search_client, mock_es
+):
+    mock_es.search.side_effect = Exception("Crash")
+    with pytest.raises(RuntimeError, match="Failed to fetch top entities"):
+        await search_client.get_top_entities()
+
+
+# --- GET ENTITY ANALYSIS TESTS ---
+
+
+@pytest.mark.asyncio
+async def test_get_entity_analysis_builds_query_and_formats_results(
+    search_client, mock_es
+):
+    mock_es.search.return_value = {
+        "aggregations": {
+            "overall_nested": {
+                "match_entity": {
+                    "doc_count": 100,
+                    "avg_sentiment": {"value": 0.5},
+                    "sum_sentiment": {"value": 50.0},
+                }
+            },
+            "domains": {
+                "buckets": [
+                    {
+                        "key": "cnn.com",
+                        "entity_nested": {
+                            "match_entity": {
+                                "doc_count": 60,
+                                "avg_sentiment": {"value": 0.6},
+                                "sum_sentiment": {"value": 36.0},
+                            }
+                        },
+                    }
+                ]
+            },
+        }
+    }
+
+    res = await search_client.get_entity_analysis(
+        entity_name="Apple", start_date="2026-01-01"
+    )
+
+    call_args = mock_es.search.call_args[1]
+    assert call_args["size"] == 0
+    assert (
+        call_args["query"]["bool"]["must"][0]["nested"]["query"]["term"][
+            "entities.entity"
+        ]
+        == "Apple"
+    )
+
+    assert res["entity"] == "Apple"
+    assert res["total_mentions"] == 100
+    assert res["overall_avg_sentiment"] == 0.5
+    assert len(res["domains"]) == 1
+    assert res["domains"][0]["domain"] == "cnn.com"
+    assert res["domains"][0]["mention_count"] == 60
+
+
+@pytest.mark.asyncio
+async def test_get_entity_analysis_raises_connection_error_on_failure(
+    search_client, mock_es
+):
+    mock_es.search.side_effect = ESConnectionError("Offline")
+    with pytest.raises(ConnectionError, match="Database connection failed"):
+        await search_client.get_entity_analysis("Apple")
+
+
+@pytest.mark.asyncio
+async def test_get_entity_analysis_raises_runtime_error_on_failure(
+    search_client, mock_es
+):
+    mock_es.search.side_effect = Exception("Crash")
+    with pytest.raises(RuntimeError, match="Failed to fetch entity analysis"):
+        await search_client.get_entity_analysis("Apple")
+
+
+# --- SUGGEST ENTITIES TESTS ---
+
+
+@pytest.mark.asyncio
+async def test_suggest_entities_returns_early_on_short_prefix(search_client, mock_es):
+    res = await search_client.suggest_entities("A")
+    assert res == []
+    mock_es.search.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_suggest_entities_builds_prefix_query_and_extracts_keys(
+    search_client, mock_es
+):
+    mock_es.search.return_value = {
+        "aggregations": {
+            "entity_nested": {
+                "filtered_entities": {
+                    "entity_names": {
+                        "buckets": [
+                            {"key": "Apple", "doc_count": 50},
+                            {"key": "Apple Inc", "doc_count": 20},
+                        ]
+                    }
+                }
+            }
+        }
+    }
+
+    res = await search_client.suggest_entities("App")
+
+    call_args = mock_es.search.call_args[1]
+    filter_val = call_args["aggs"]["entity_nested"]["aggs"]["filtered_entities"][
+        "filter"
+    ]
+    assert filter_val["prefix"]["entities.entity"]["value"] == "App"
+    assert filter_val["prefix"]["entities.entity"]["case_insensitive"] is True
+
+    assert res == ["Apple", "Apple Inc"]
+
+
+@pytest.mark.asyncio
+async def test_suggest_entities_returns_empty_list_on_exception(search_client, mock_es):
+    mock_es.search.side_effect = Exception("Crash")
+    res = await search_client.suggest_entities("App")
+    assert res == []

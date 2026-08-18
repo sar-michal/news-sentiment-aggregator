@@ -130,3 +130,93 @@ def test_fetch_latest_news_returns_empty_list_on_pydantic_validation_error(
     actual = fetcher.fetch_latest_news()
 
     assert actual == []
+
+
+def test_fetch_historical_news_success_and_filters_urls(block_requests_library):
+    fetcher = GdeltFetcher()
+    mock_payload = {
+        "articles": [
+            {
+                "url": "https://example.com/news/1",
+                "title": "Historical Valid",
+                "seendate": "20231024T153000Z",
+                "domain": "example.com",
+                "sourcecountry": "United States",
+            },
+            {
+                "url": "https://example.com/sports/hockey",
+                "title": "Historical Blacklisted",
+                "seendate": "20231024T154000Z",
+                "domain": "example.com",
+                "sourcecountry": "United States",
+            },
+        ]
+    }
+    block_requests_library.add(
+        responses.GET, fetcher.base_url, json=mock_payload, status=200
+    )
+
+    actual = fetcher.fetch_historical_news(
+        start_datetime="20231024000000", end_datetime="20231024235959"
+    )
+
+    assert len(actual) == 1
+    assert actual[0].title == "Historical Valid"
+
+
+def test_fetch_historical_news_aborts_on_empty_whitelist(monkeypatch):
+    monkeypatch.setattr(settings, "GDELT_WHITELIST", set())
+    fetcher = GdeltFetcher()
+
+    actual = fetcher.fetch_historical_news(
+        start_datetime="20231024000000", end_datetime="20231024235959"
+    )
+
+    assert actual == []
+
+
+def test_fetch_historical_news_handles_rate_limits(block_requests_library):
+    fetcher = GdeltFetcher()
+    block_requests_library.add(responses.GET, fetcher.base_url, json={}, status=429)
+
+    with pytest.raises(ConnectionError, match="HTTP 429: Too Many Requests"):
+        fetcher.fetch_historical_news(
+            start_datetime="20231024000000", end_datetime="20231024235959"
+        )
+
+
+def test_fetch_historical_news_returns_empty_when_no_articles(block_requests_library):
+    fetcher = GdeltFetcher()
+    block_requests_library.add(
+        responses.GET, fetcher.base_url, json={"status": "ok"}, status=200
+    )
+
+    actual = fetcher.fetch_historical_news(
+        start_datetime="20231024000000", end_datetime="20231024235959"
+    )
+
+    assert actual == []
+
+    actual = fetcher.fetch_historical_news(
+        start_datetime="20231024000000", end_datetime="20231024235959"
+    )
+
+    assert actual == []
+
+
+def test_fetch_historical_news_raises_connection_error_on_network_failure(
+    block_requests_library,
+):
+    import requests
+
+    fetcher = GdeltFetcher()
+    block_requests_library.add(
+        responses.GET,
+        fetcher.base_url,
+        body=requests.exceptions.RequestException("Network dropped"),
+    )
+
+    with pytest.raises(ConnectionError, match="Historical API connection failed"):
+        fetcher.fetch_historical_news(
+            start_datetime="20231024000000", end_datetime="20231024235959"
+        )
