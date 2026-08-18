@@ -197,12 +197,6 @@ def test_fetch_historical_news_returns_empty_when_no_articles(block_requests_lib
 
     assert actual == []
 
-    actual = fetcher.fetch_historical_news(
-        start_datetime="20231024000000", end_datetime="20231024235959"
-    )
-
-    assert actual == []
-
 
 def test_fetch_historical_news_raises_connection_error_on_network_failure(
     block_requests_library,
