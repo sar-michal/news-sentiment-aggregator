@@ -29,5 +29,3 @@ httpx~=0.28.1
 responses~=0.26.0
 pytest-asyncio~=1.3.0
 pytest-cov~=7.0.0
-polyfactory~=3.3.0
-syrupy~=5.1.0
