@@ -28,9 +28,9 @@ class Settings(BaseSettings):
         "npr.org",
         "cnn.com",
         "cnbc.com",
-        # "scmp.com",
+        "scmp.com",
         # "france24.com",
-        "timesofindia.indiatimes.com",
+        # "timesofindia.indiatimes.com",
     }
 
     # Blacklist for URL path filtering
