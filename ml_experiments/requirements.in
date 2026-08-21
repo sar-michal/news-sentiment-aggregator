@@ -1,3 +1,5 @@
+--extra-index-url https://download.pytorch.org/whl/cu126
+
 # ML Training Stack
 torch
 transformers
@@ -7,5 +9,9 @@ scikit-learn
 numpy
 accelerate
 
+# Hyperparameter Search
+optuna
+
 # Workspace
 jupyterlab
+decorator

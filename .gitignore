@@ -1,6 +1,10 @@
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
 
+# Optuna databases
+*.db
+*.sqlite
+
 # Model Weights and Hugging Face Checkpoints
 ml_experiments/checkpoints/
 ml_experiments/newsmtsc_distilroberta_absa/
